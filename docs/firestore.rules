@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+
+    // Helpers
+    function hasKey(data, key) { return data.keys().hasAny([key]); }
+    function optionalStringMax(data, key, max) {
+      return !hasKey(data, key) || (data[key] is string && data[key].size() <= max);
+    }
+    function optionalNumber(data, key) { return !hasKey(data, key) || (data[key] is number); }
+    function isISODate(s) { return s is string && s.matches('^\\d{4}-\\d{2}-\\d{2}$'); }
+    function optionalISODate(data, key) { return !hasKey(data, key) || isISODate(data[key]); }
+    function isHHMM(s) { return s is string && s.matches('^([01]\\d|2[0-3]):[0-5]\\d$'); }
+    function optionalHHMM(data, key) { return !hasKey(data, key) || isHHMM(data[key]); }
+    function isBoolString(s) { return s is string && (s == 'true' || s == 'false'); }
+    function optionalBoolString(data, key) { return !hasKey(data, key) || isBoolString(data[key]); }
+    function noForbiddenGeoKeys(data) {
+      // Deny common geo key names anywhere at top-level
+      return !data.keys().hasAny(['lat','lng','latitude','longitude','geohash']);
+    }
+
+    // Validators per document type
+    function validProfile(data) {
+      return noForbiddenGeoKeys(data)
+        && optionalStringMax(data, 'displayName', 64)
+        && optionalStringMax(data, 'baseCurrency', 8)
+        && optionalStringMax(data, 'currentCity', 64)
+        && optionalStringMax(data, 'currentRegion', 64)
+        && optionalStringMax(data, 'currentCountry', 64)
+        && optionalStringMax(data, 'timezone', 64);
+    }
+
+    function validBudget(data) {
+      return noForbiddenGeoKeys(data)
+        && optionalNumber(data, 'totalInitialFunds')
+        && optionalISODate(data, 'startDate')
+        && optionalISODate(data, 'endDate')
+        && optionalNumber(data, 'dailyAllowance')
+        && optionalNumber(data, 'currentBalance')
+        && optionalStringMax(data, 'budgetName', 64)
+        && optionalStringMax(data, 'currency', 8);
+    }
+
+    function validTransaction(data) {
+      return noForbiddenGeoKeys(data)
+        && optionalNumber(data, 'amount')
+        && optionalStringMax(data, 'currency', 8)
+        && (!hasKey(data, 'type') || (data['type'] is string && ['income','expense'].hasAny([data['type']])))
+        && optionalISODate(data, 'date')
+        && optionalStringMax(data, 'description', 256)
+        && optionalStringMax(data, 'category', 64)
+        && optionalStringMax(data, 'city', 64)
+        && optionalStringMax(data, 'country', 64);
+    }
+
+    function validRecurring(data) {
+      return noForbiddenGeoKeys(data)
+        && optionalNumber(data, 'amount')
+        && optionalStringMax(data, 'currency', 8)
+        && optionalNumber(data, 'frequencyDays')
+        && optionalISODate(data, 'startDate')
+        && optionalISODate(data, 'endDate')
+        && optionalBoolString(data, 'active')
+        && optionalStringMax(data, 'description', 256)
+        && (!hasKey(data, 'type') || (data['type'] is string && ['income','expense'].hasAny([data['type']])))
+        && optionalStringMax(data, 'category', 64);
+    }
+
+    function validMedicine(data) {
+      return noForbiddenGeoKeys(data)
+        && optionalStringMax(data, 'name', 64)
+        && optionalStringMax(data, 'dosage', 64)
+        && optionalNumber(data, 'frequencyHours')
+        && optionalHHMM(data, 'startTime')
+        && optionalISODate(data, 'startDate')
+        && optionalISODate(data, 'endDate')
+        && optionalStringMax(data, 'notes', 512)
+        && optionalStringMax(data, 'timezone', 64)
+        && optionalBoolString(data, 'active');
+    }
+
+    function validTimezoneDoc(data) {
+      return noForbiddenGeoKeys(data)
+        && optionalStringMax(data, 'label', 32)
+        && optionalStringMax(data, 'timezone', 64)
+        && optionalBoolString(data, 'isHome')
+        && optionalBoolString(data, 'isCurrent');
+    }
+
+    // Top-level users doc now holds the profile fields directly
+    match /users/{userId} {
+      // Read/update own profile document
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && validProfile(request.resource.data);
+      allow delete: if isOwner(userId);
+
+      // Budgets
+      match /budgets/{budgetId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validBudget(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      // Transactions
+      match /transactions/{txId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validTransaction(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      // Recurring
+      match /recurring/{recId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validRecurring(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      // Medicines
+      match /medicines/{medId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validMedicine(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      // Timezones
+      match /timezones/{tzId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validTimezoneDoc(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

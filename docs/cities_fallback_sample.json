@@ -1,0 +1,14 @@
+[
+  {"city":"Lisboa","region":"Lisboa","country":"Portugal"},
+  {"city":"Porto","region":"Porto","country":"Portugal"},
+  {"city":"Madrid","region":"Madrid","country":"España"},
+  {"city":"Barcelona","region":"Cataluña","country":"España"},
+  {"city":"São Paulo","region":"São Paulo","country":"Brasil"},
+  {"city":"Rio de Janeiro","region":"Rio de Janeiro","country":"Brasil"},
+  {"city":"Buenos Aires","region":"Ciudad Autónoma de Buenos Aires","country":"Argentina"},
+  {"city":"Santiago","region":"Región Metropolitana","country":"Chile"},
+  {"city":"New York","region":"New York","country":"United States"},
+  {"city":"London","region":"England","country":"United Kingdom"},
+  {"city":"Paris","region":"Île-de-France","country":"France"},
+  {"city":"Berlin","region":"Berlin","country":"Germany"}
+]
