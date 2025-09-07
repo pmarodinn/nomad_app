@@ -1,42 +1,45 @@
-# NomadGuide Mobile App - Database Architecture
+# NomadGuide Mobile App - Firebase Firestore Architecture
 
-## 📊 Database Architecture Overview
+## � Firebase Firestore Architecture Overview
 
-This document outlines the comprehensive database architecture for the **NomadGuide** mobile application, designed to support digital nomads with financial planning, health management, location intelligence, and cultural adaptation features.
+This document outlines the comprehensive **Firebase Firestore** database architecture for the **NomadGuide** React Native mobile application, designed to support digital nomads with financial planning, health management, location intelligence, and cultural adaptation features.
 
-### 🏗️ **Database Technology Stack**
+### 🏗️ **Firebase Technology Stack**
 
-#### **Primary Database: PostgreSQL 15 (Containerized)**
-- **Deployment**: Docker container with persistent volumes
-- **Rationale**: ACID compliance, JSON support, excellent performance
-- **Scalability**: Horizontal scaling with read replicas
-- **Development**: Isolated container environment for consistency
-- **Production**: Same PostgreSQL version for environment parity
+#### **Primary Database: Firestore (NoSQL Document Database)**
+- **Type**: NoSQL document-based database
+- **Deployment**: Google Cloud Firebase (fully managed)
+- **Rationale**: Real-time synchronization, offline support, auto-scaling
+- **Scalability**: Automatic horizontal scaling
+- **Development**: Firebase Emulator Suite for local development
+- **Production**: Multi-region replication for global users
 
-#### **Development Environment: Docker Compose**
-- **Container Setup**: PostgreSQL + pgAdmin in isolated network
-- **Data Persistence**: Named Docker volumes for data safety
-- **Port Mapping**: Local access while maintaining isolation
-- **Configuration**: Environment-specific settings via .env files
-- **Migration**: Automated schema migrations on container startup
+#### **Authentication: Firebase Authentication**
+- **Providers**: Email/Password, Google, Apple ID
+- **Security**: JWT tokens with custom claims
+- **Session Management**: Automatic token refresh
+- **Multi-factor**: Future implementation
+- **Social Login**: Streamlined onboarding process
 
-#### **Database Management: pgAdmin (Containerized)**
-- **Web Interface**: Browser-based database administration
-- **Container Access**: Secure connection to PostgreSQL container
-- **Development**: Pre-configured server connections
-- **Backup/Restore**: Integrated backup and restore tools
+#### **Cloud Functions: Firebase Functions (Node.js)**
+- **Runtime**: Node.js 18+ serverless functions
+- **Triggers**: Firestore triggers, HTTP callable functions
+- **Purpose**: Business logic, data validation, external API integration
+- **Authentication**: Secure function execution with Firebase Auth
+- **Scaling**: Automatic scaling based on demand
 
-#### **Secondary Database: Redis (Caching) - Future Implementation**
-- **Container**: Redis Alpine for minimal footprint
-- **Purpose**: Session management, API response caching
-- **Performance**: Sub-second response times for cached data
-- **Persistence**: Optional persistence for session data
+#### **File Storage: Firebase Storage**
+- **Purpose**: Receipt images, profile pictures, document storage
+- **Security**: Firebase Security Rules for access control
+- **CDN**: Global content delivery network
+- **Optimization**: Automatic image compression and resizing
 
-#### **Mobile Database: Room (SQLite)**
-- **Local Storage**: Android Room database for offline functionality
-- **Synchronization**: Two-way sync with PostgreSQL backend
-- **Conflict Resolution**: Timestamp-based conflict resolution
+#### **React Native Integration**
+- **SDK**: React Native Firebase (RNFB) v18+
+- **Offline Support**: Automatic offline data persistence
+- **Real-time**: Live data synchronization across devices
 - **Performance**: Optimized for mobile device constraints
+- **Local Caching**: Smart local caching strategies
 
 ### **🐳 Docker Architecture Benefits**
 

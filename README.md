@@ -1,181 +1,191 @@
-# 🌍 NomadWallet - Intelligent Travel Budget Management System
+# 🌍 NomadGuide - Intelligent Travel Budget Management Mobile App
 
 **Version:** 1.0.0  
 **Status:** Active Development  
 **License:** MIT  
-**Language:** Python 3.11+  
+**Platform:** React Native (Android Primary)  
+**Target:** Google Play Store
 
 ---
 
 ## 📋 Table of Contents
 
 1. [Project Overview](#-project-overview)
-2. [Architecture](#-architecture)
-3. [Functional Requirements](#-functional-requirements)
-4. [Non-Functional Requirements](#-non-functional-requirements)
-5. [System Components](#-system-components)
-6. [Data Models](#-data-models)
-7. [Services Architecture](#-services-architecture)
-8. [User Interface](#-user-interface)
-9. [API Documentation](#-api-documentation)
-10. [Installation & Setup](#-installation--setup)
-11. [Usage Examples](#-usage-examples)
-12. [Future Implementations](#-future-implementations)
-13. [Security Considerations](#-security-considerations)
-14. [Performance Optimization](#-performance-optimization)
-15. [Contributing](#-contributing)
+2. [Mobile Architecture](#-mobile-architecture)
+3. [Firebase Integration](#-firebase-integration)
+4. [Functional Requirements](#-functional-requirements)
+5. [Non-Functional Requirements](#-non-functional-requirements)
+6. [Mobile Components](#-mobile-components)
+7. [Firebase Data Models](#-firebase-data-models)
+8. [React Native Services](#-react-native-services)
+9. [User Interface](#-user-interface)
+10. [Firebase API Integration](#-firebase-api-integration)
+11. [Installation & Setup](#-installation--setup)
+12. [Usage Examples](#-usage-examples)
+13. [Future Implementations](#-future-implementations)
+14. [Security Considerations](#-security-considerations)
+15. [Performance Optimization](#-performance-optimization)
+16. [Contributing](#-contributing)
 
 ---
 
 ## 🎯 Project Overview
 
-**NomadWallet** is an intelligent travel budget management system designed specifically for digital nomads, travelers, and long-term expatriates. The system provides comprehensive financial planning, health management, and timezone coordination tools to help users manage their finances effectively while living or traveling across different countries and time zones.
+**NomadGuide** is an intelligent travel budget management mobile application designed specifically for digital nomads, travelers, and long-term expatriates. Built with React Native for cross-platform compatibility and powered by Google Firebase for real-time data management, the app provides comprehensive financial planning, health management, and location-aware recommendations.
 
 ### Core Mission
-Empower travelers with intelligent financial insights, automated health reminders, and seamless timezone management to enhance their nomadic lifestyle experience.
+Empower travelers with intelligent financial insights, automated health reminders, and seamless location management to enhance their nomadic lifestyle experience through a native mobile application.
+
+### Target Platform
+- **Primary:** Android (Google Play Store)
+- **Future:** iOS App Store
+- **Architecture:** React Native for cross-platform development
+- **Backend:** Google Firebase (Firestore, Authentication, Cloud Functions)
 
 ### Target Audience
 - Digital nomads and remote workers
 - Long-term travelers and backpackers
 - Expatriates living abroad
 - Frequent business travelers
-- Anyone managing finances across multiple currencies and timezones
+- Anyone managing finances across multiple currencies and locations
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Mobile Architecture
 
-### High-Level Architecture
+### React Native Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    PRESENTATION LAYER                       │
+│                   PRESENTATION LAYER                        │
 ├─────────────────────────────────────────────────────────────┤
-│  Web Templates (Jinja2) │ Static Assets │ JavaScript/CSS   │
-│  - Dashboard             │ - Styles      │ - Interactive    │
-│  - Forms                 │ - Images      │   Charts         │
-│  - Analytics             │ - Icons       │ - Notifications  │
+│  React Native Components │ Navigation │ State Management    │
+│  - Screens               │ - Stack    │ - Redux/Context     │
+│  - Custom Components     │ - Tab      │ - AsyncStorage      │
+│  - Styled Components     │ - Drawer   │ - Secure Storage    │
 └─────────────────────────────────────────────────────────────┘
                                 │
 ┌─────────────────────────────────────────────────────────────┐
-│                    APPLICATION LAYER                        │
+│                   BUSINESS LOGIC LAYER                      │
 ├─────────────────────────────────────────────────────────────┤
-│                    Flask Web Framework                      │
-│  - Route Handlers        │ - Form Processing                │
-│  - Request/Response      │ - Session Management             │
-│  - Error Handling        │ - Template Rendering             │
-└─────────────────────────────────────────────────────────────┘
-                                │
-┌─────────────────────────────────────────────────────────────┐
-│                     BUSINESS LOGIC LAYER                    │
-├─────────────────────────────────────────────────────────────┤
-│  Budget Analysis Service │ Health & Timezone Service       │
-│  - Financial Insights    │ - Medicine Alerts              │
-│  - Spending Analytics    │ - Timezone Comparison          │
-│  - Health Monitoring     │ - Call Planning                │
-│                          │                                │
-│  Currency Service        │ Data Service                   │
-│  - Exchange Rates        │ - User Profile Management      │
-│  - Multi-Currency Support│ - Data Persistence            │
+│  Services & Hooks        │ Utilities & Helpers             │
+│  - Firebase Services     │ - Currency Converter            │
+│  - Location Services     │ - Date/Time Utils               │
+│  - Notification Services │ - Validation Utils              │
+│  - Authentication        │ - Format Utils                  │
 └─────────────────────────────────────────────────────────────┘
                                 │
 ┌─────────────────────────────────────────────────────────────┐
 │                      DATA LAYER                             │
 ├─────────────────────────────────────────────────────────────┤
-│  JSON File Storage       │ External APIs                   │
-│  - User Profiles         │ - Exchange Rate APIs            │
-│  - Transaction History   │ - Timezone APIs                 │
-│  - Medicine Alerts       │ - Future: Location APIs         │
-│  - Timezone Locations    │                                │
+│  Firebase Integration    │ Local Storage                   │
+│  - Firestore Database    │ - AsyncStorage                  │
+│  - Authentication        │ - Secure Storage                │
+│  - Cloud Functions       │ - Local Cache                   │
+│  - Push Notifications    │ - Offline Support               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Technology Stack
 
 **Mobile Development:**
-- **Platform:** Android Native (Kotlin)
-- **Architecture:** MVVM with Repository pattern
-- **UI Framework:** Jetpack Compose + Material Design 3
-- **Local Database:** Room (SQLite)
-- **Networking:** Retrofit + OkHttp
-- **Dependency Injection:** Hilt/Dagger
+- **Framework:** React Native 0.72+
+- **Language:** TypeScript
+- **State Management:** Redux Toolkit + Context API
+- **Navigation:** React Navigation 6
+- **UI Components:** React Native Elements / NativeBase
+- **Styling:** Styled Components + React Native StyleSheet
+- **Icons:** React Native Vector Icons
+- **Maps:** React Native Maps (Google Maps)
+- **Camera:** React Native Image Picker
+- **Local Storage:** AsyncStorage + React Native Keychain
 
-**Backend Infrastructure:**
-- **Containerization:** Docker + Docker Compose
-- **Database:** PostgreSQL 15 (containerized)
-- **API Framework:** Node.js/Spring Boot/Django (to be decided)
-- **Database Management:** pgAdmin (containerized)
-- **Caching:** Redis (future, containerized)
-- **File Storage:** Local/MinIO/S3 (future)
+**Backend Services:**
+- **Database:** Google Firestore (NoSQL)
+- **Authentication:** Firebase Authentication
+- **Cloud Functions:** Firebase Cloud Functions (Node.js)
+- **File Storage:** Firebase Storage
+- **Push Notifications:** Firebase Cloud Messaging (FCM)
+- **Analytics:** Firebase Analytics
+- **Crash Reporting:** Firebase Crashlytics
 
+**External Integrations:**
+- **Currency API:** Exchange Rates API / CurrencyAPI
+- **Location Services:** Google Places API
+- **Maps:** Google Maps SDK
+- **Weather:** OpenWeatherMap API
+- **Translation:** Google Translate API (Future)
 **Development Environment:**
-- **Strategy:** Hybrid containerized development
-- **Backend & Database:** Fully containerized with Docker Compose
-- **Android Development:** Local Android Studio installation
-- **Benefits:** Consistent backend environment + optimal Android performance
+- **Mobile Framework:** React Native CLI / Expo (managed workflow)
+- **IDE:** Visual Studio Code / Android Studio
+- **Package Manager:** npm / yarn
+- **Version Control:** Git with React Native specific configurations
+- **Testing:** Jest + React Native Testing Library
+- **Debugging:** React Native Debugger / Flipper
+- **Build System:** React Native build tools + Gradle (Android)
 
-**External Libraries:** 
-  - `pytz` - Timezone handling
-  - `requests` - HTTP client for API calls
-  - `flask-cors` - Cross-origin resource sharing
+## 🔥 Firebase Integration
 
-**Frontend:**
-- **Styling:** Custom CSS with responsive design
-- **JavaScript:** Vanilla JS (Future: Chart.js for analytics)
-- **Icons:** Unicode emojis and custom icons
-- **Responsive:** Mobile-first design approach
+### Firebase Services Used
 
-**Development Tools:**
-- **Containerization:** Docker + Docker Compose for backend services
-- **Database Management:** pgAdmin (containerized)
-- **Version Control:** Git with Docker-specific configurations
-- **Package Management:** npm/gradle for respective platforms
-- **Development Server:** Containerized API server with hot-reload
-- **Debugging:** Integrated debugging for both Android and backend services
+**Core Firebase Services:**
+- **Firestore Database:** NoSQL document database for real-time data
+- **Authentication:** Multi-provider authentication (Email, Google, Apple)
+- **Cloud Storage:** File and image storage
+- **Cloud Functions:** Server-side logic and API endpoints
+- **Cloud Messaging:** Push notifications
 
-## 🐳 Docker Development Environment
+**Analytics & Monitoring:**
+- **Firebase Analytics:** User behavior tracking
+- **Crashlytics:** Crash reporting and monitoring
+- **Performance Monitoring:** App performance insights
+- **Remote Config:** Feature flags and configuration
 
-### **Quick Start with Docker**
+### Firestore Data Structure
 
-```bash
-# 1. Install Docker and Docker Compose
-sudo apt update && sudo apt install docker.io docker-compose-plugin
-
-# 2. Clone and setup project
-git clone <repository-url>
-cd mobile_NomadGuide
-
-# 3. Start development environment
-./scripts/start-dev.sh
-
-# 4. Verify services are running
-docker ps
+```
+users/{userId}/
+├── profile/
+│   ├── personalInfo
+│   ├── preferences
+│   └── subscription
+├── budgets/{budgetId}/
+│   ├── categories[]
+│   ├── savingsGoals[]
+│   └── recurringExpenses[]
+├── transactions/{transactionId}/
+│   ├── amount, currency, category
+│   ├── location data
+│   └── timestamp
+├── health/{profileId}/
+│   ├── medications[]
+│   ├── alerts[]
+│   └── medicalInfo
+└── locations/{locationId}/
+    ├── coordinates
+    ├── timezone
+    └── currency
 ```
 
-### **What Gets Containerized**
+### Firebase Security Rules
 
-| Service | Container | Port | Purpose |
-|---------|-----------|------|---------|
-| **PostgreSQL** | `nomadguide_postgres` | 5432 | Main database |
-| **pgAdmin** | `nomadguide_pgadmin` | 5050 | Database management UI |
-| **Backend API** | `nomadguide_backend` | 3000 | REST/GraphQL API |
-| **Redis** | `nomadguide_redis` | 6379 | Caching (future) |
-
-### **What Stays Local**
-
-- **Android Studio** - Better emulator performance and device debugging
-- **IDE/Editor** - VS Code, IntelliJ, or preferred development environment
-- **Git** - Version control remains on host system
-
-### **Development Workflow Benefits**
-
-✅ **One Command Setup** - `./scripts/start-dev.sh` starts entire backend  
-✅ **Consistent Environment** - Same database and API setup for all developers  
-✅ **Easy Reset** - `./scripts/reset-db.sh` for clean database state  
-✅ **Production Parity** - Development environment mirrors production  
-✅ **Isolation** - No conflicts with host system services  
-
-For detailed Docker setup instructions, see [DOCKER_SETUP.md](DOCKER_SETUP.md).
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only access their own data
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Public read access for currency rates
+    match /exchangeRates/{rateId} {
+      allow read: if true;
+      allow write: if false; // Only cloud functions can write
+    }
+  }
+}
+```
 
 ---
 
