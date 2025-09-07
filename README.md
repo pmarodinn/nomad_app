@@ -197,12 +197,25 @@ service cloud.firestore {
 - **Requirement ID:** FR-001
 - **Description:** Users can set up their initial travel budget with comprehensive parameters
 - **Implementation:**
-  ```python
-  # Key Components:
-  - Total travel funds input
-  - Base currency selection (EUR, USD, GBP, etc.)
-  - Travel start and end dates
-  - Automatic daily allowance calculation
+  ```typescript
+  // React Native Implementation:
+  interface BudgetSetup {
+    totalFunds: number;           // Total travel funds input
+    baseCurrency: string;         // Base currency selection (EUR, USD, GBP, etc.)
+    startDate: Date;             // Travel start date
+    endDate: Date;               // Travel end date
+    dailyAllowance?: number;     // Automatic daily allowance calculation
+  }
+  
+  // Firebase Firestore integration for budget storage
+  export const setupBudget = async (userId: string, budget: BudgetSetup) => {
+    const budgetRef = doc(db, 'users', userId, 'budgets', 'current');
+    await setDoc(budgetRef, {
+      ...budget,
+      dailyAllowance: budget.totalFunds / daysBetween(budget.startDate, budget.endDate),
+      createdAt: serverTimestamp()
+    });
+  };
   ```
 - **User Story:** As a traveler, I want to set up my budget so that I can track my spending against my available funds
 - **Acceptance Criteria:**
@@ -215,13 +228,43 @@ service cloud.firestore {
 - **Requirement ID:** FR-002
 - **Description:** Complete transaction recording and management system
 - **Implementation:**
-  ```python
-  # Transaction Types:
-  - Income transactions (salary, freelance, etc.)
-  - Expense transactions (food, transport, accommodation, etc.)
-  - Multi-currency support with automatic conversion
-  - Category-based organization
-  - Tag system for detailed tracking
+  ```typescript
+  // Transaction Types in React Native/Firebase
+  interface Transaction {
+    id?: string;
+    amount: number;
+    currency: string;
+    description: string;
+    category: string;
+    transactionType: 'INCOME' | 'EXPENSE';
+    date: Date;
+    tags?: string[];
+    convertedAmount?: number;
+    exchangeRate?: number;
+  }
+  
+  // Firebase transaction management
+  export const addTransaction = async (userId: string, transaction: Transaction) => {
+    const transactionsRef = collection(db, 'users', userId, 'transactions');
+    const docRef = await addDoc(transactionsRef, {
+      ...transaction,
+      createdAt: serverTimestamp()
+    });
+    
+    // Update budget balance in real-time
+    await updateBudgetBalance(userId, transaction);
+    return docRef.id;
+  };
+  
+  // Real-time balance updates using Firestore listeners
+  export const subscribeToBalance = (userId: string, callback: (balance: number) => void) => {
+    const budgetRef = doc(db, 'users', userId, 'budgets', 'current');
+    return onSnapshot(budgetRef, (doc) => {
+      if (doc.exists()) {
+        callback(doc.data().currentBalance);
+      }
+    });
+  };
   ```
 - **Features:**
   - Real-time balance updates
@@ -234,13 +277,43 @@ service cloud.firestore {
 - **Requirement ID:** FR-003
 - **Description:** Automated handling of recurring income and expenses
 - **Implementation:**
-  ```python
-  # Recurring Transaction Features:
-  - Configurable frequency (daily, weekly, monthly, custom)
-  - Start and end date management
-  - Automatic currency conversion
-  - Future projection calculations
-  - Active/inactive status control
+  ```typescript
+  // Recurring Transaction Interface
+  interface RecurringTransaction {
+    id?: string;
+    amount: number;
+    currency: string;
+    description: string;
+    category: string;
+    transactionType: 'INCOME' | 'EXPENSE';
+    frequency: 'daily' | 'weekly' | 'monthly' | 'custom';
+    customFrequencyDays?: number;
+    startDate: Date;
+    endDate?: Date;
+    isActive: boolean;
+    nextExecutionDate?: Date;
+  }
+  
+  // Firebase Cloud Functions for automated recurring transactions
+  export const scheduleRecurringTransaction = async (userId: string, recurring: RecurringTransaction) => {
+    const recurringRef = collection(db, 'users', userId, 'recurringTransactions');
+    await addDoc(recurringRef, {
+      ...recurring,
+      nextExecutionDate: calculateNextExecution(recurring),
+      createdAt: serverTimestamp()
+    });
+    
+    // Schedule Cloud Function execution
+    await scheduleCloudFunction('processRecurringTransactions', recurring.nextExecutionDate);
+  };
+  
+  // Future projection calculations for budget planning
+  export const calculateFutureProjections = (recurring: RecurringTransaction[], months: number) => {
+    return recurring.map(r => ({
+      ...r,
+      projectedAmount: r.amount * calculateOccurrences(r, months)
+    }));
+  };
   ```
 - **Use Cases:**
   - Monthly salary or freelance income
@@ -252,33 +325,86 @@ service cloud.firestore {
 - **Requirement ID:** FR-004
 - **Description:** Comprehensive financial analysis and reporting system
 - **Current Metrics:**
-  ```python
-  # Dashboard Metrics:
-  1. Current Bank Account (Real balance based on actual transactions)
-  2. Actual Daily Budget (Available funds ÷ remaining days)
-  3. Projected Balance (Current balance + future recurring transactions)
-  4. Projected Daily Budget (Projected balance ÷ remaining days)
+  ```typescript
+  // Dashboard Metrics Interface
+  interface DashboardMetrics {
+    currentBalance: number;           // Real balance based on actual transactions
+    actualDailyBudget: number;       // Available funds ÷ remaining days
+    projectedBalance: number;        // Current balance + future recurring transactions
+    projectedDailyBudget: number;    // Projected balance ÷ remaining days
+    spendingTrend: 'increasing' | 'decreasing' | 'stable';
+    budgetHealth: 'excellent' | 'good' | 'warning' | 'critical';
+  }
+  
+  // Analytics Service using Firebase Functions
+  export class AnalyticsService {
+    static async calculateDashboardMetrics(userId: string): Promise<DashboardMetrics> {
+      const transactions = await FirestoreService.getTransactions(userId);
+      const budget = await FirestoreService.getCurrentBudget(userId);
+      const recurring = await FirestoreService.getRecurringTransactions(userId);
+      
+      return {
+        currentBalance: this.calculateCurrentBalance(transactions, budget),
+        actualDailyBudget: this.calculateDailyBudget(budget),
+        projectedBalance: this.calculateProjectedBalance(transactions, recurring),
+        projectedDailyBudget: this.calculateProjectedDailyBudget(budget, recurring),
+        spendingTrend: this.analyzeSpendingTrend(transactions),
+        budgetHealth: this.assessBudgetHealth(budget, transactions)
+      };
+    }
+  }
   ```
 - **Advanced Analytics:**
-  - Spending by category breakdown
-  - Daily spending trends and patterns
-  - Budget health status monitoring
-  - What-if scenario calculator
-  - Monthly and weekly spending summaries
+  - Spending by category breakdown with interactive charts
+  - Daily spending trends and patterns visualization
+  - Budget health status monitoring with alerts
+  - What-if scenario calculator for budget planning
+  - Monthly and weekly spending summaries with insights
 
 ### 2. Health Management System
 
 #### 2.1 Medicine Alert System
 - **Requirement ID:** FR-005
-- **Description:** Intelligent medicine reminder and tracking system
+- **Description:** Intelligent medicine reminder and tracking system with push notifications
 - **Implementation:**
-  ```python
-  # Medicine Alert Features:
-  - Custom dosage and frequency settings
-  - Timezone-aware scheduling
-  - Start and end date management
-  - Comprehensive notes and instructions
-  - Upcoming alerts dashboard (48-hour preview)
+  ```typescript
+  // Medicine Alert Interface
+  interface MedicineAlert {
+    id?: string;
+    name: string;
+    dosage: string;
+    frequencyHours: number;
+    startTime: string;           // HH:MM format
+    startDate: Date;
+    endDate?: Date;
+    timezone: string;
+    notes?: string;
+    isActive: boolean;
+    nextDose?: Date;
+  }
+  
+  // Push notification scheduling using Expo Notifications
+  export const scheduleMedicineNotifications = async (alert: MedicineAlert) => {
+    const notifications = [];
+    let nextDose = new Date(alert.startDate);
+    nextDose.setHours(parseInt(alert.startTime.split(':')[0]));
+    nextDose.setMinutes(parseInt(alert.startTime.split(':')[1]));
+    
+    while (!alert.endDate || nextDose <= alert.endDate) {
+      notifications.push(await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Medicine Reminder',
+          body: `Time to take ${alert.name} - ${alert.dosage}`,
+          data: { medicineId: alert.id }
+        },
+        trigger: nextDose
+      }));
+      
+      nextDose = new Date(nextDose.getTime() + (alert.frequencyHours * 60 * 60 * 1000));
+    }
+    
+    return notifications;
+  };
   ```
 - **Key Capabilities:**
   - Multiple medicine tracking
@@ -303,35 +429,109 @@ service cloud.firestore {
 - **Requirement ID:** FR-007
 - **Description:** Comprehensive timezone management for global travelers
 - **Implementation:**
-  ```python
-  # Timezone Features:
-  - Multiple location tracking
-  - Home vs. current location designation
-  - Real-time timezone comparison
-  - Popular timezone database
-  - Time difference calculations
+  ```typescript
+  // Timezone Location Interface
+  interface TimezoneLocation {
+    id?: string;
+    name: string;
+    timezone: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+    isHome: boolean;
+    isCurrent: boolean;
+    addedAt: Date;
+  }
+  
+  // Timezone management service using React Native
+  export class TimezoneService {
+    static async addLocation(userId: string, location: TimezoneLocation) {
+      const locationsRef = collection(db, 'users', userId, 'timezoneLocations');
+      return await addDoc(locationsRef, {
+        ...location,
+        addedAt: serverTimestamp()
+      });
+    }
+    
+    static calculateTimeDifference(timezone1: string, timezone2: string): number {
+      const date = new Date();
+      const time1 = new Date(date.toLocaleString("en-US", {timeZone: timezone1}));
+      const time2 = new Date(date.toLocaleString("en-US", {timeZone: timezone2}));
+      return (time2.getTime() - time1.getTime()) / (1000 * 60 * 60); // Hours difference
+    }
+    
+    static getPopularTimezones(): string[] {
+      return [
+        'America/New_York', 'America/Los_Angeles', 'Europe/London',
+        'Europe/Paris', 'Asia/Tokyo', 'Asia/Singapore', 'Australia/Sydney'
+      ];
+    }
+  }
   ```
 
 #### 3.2 Call Planning System
 - **Requirement ID:** FR-008
-- **Description:** Intelligent call scheduling across timezones
+- **Description:** Intelligent call scheduling across timezones using React Native
 - **Features:**
-  - Best call time recommendations
-  - Business hours consideration
-  - Multiple participant timezone coordination
-  - Meeting scheduler integration
-  - Time conflict identification
+  ```typescript
+  // Call planning interface
+  interface CallPlanningService {
+    getBestCallTimes(timezones: string[], duration: number): CallTimeSlot[];
+    checkBusinessHours(timezone: string, dateTime: Date): boolean;
+    coordinateMultipleParticipants(participants: Participant[]): CallSuggestion[];
+    scheduleRecurringMeeting(meeting: RecurringMeeting): MeetingSchedule;
+  }
+  
+  // Business hours consideration
+  interface BusinessHours {
+    timezone: string;
+    startHour: number; // 9 for 9 AM
+    endHour: number;   // 17 for 5 PM
+    workDays: number[]; // [1,2,3,4,5] for Mon-Fri
+  }
+  ```
 
 ### 4. Multi-Currency Support
 
 #### 4.1 Real-Time Exchange Rates
 - **Requirement ID:** FR-009
-- **Description:** Live currency conversion and exchange rate management
+- **Description:** Live currency conversion using Firebase Cloud Functions
 - **Implementation:**
-  ```python
-  # Currency Features:
-  - Live exchange rate fetching
-  - Historical rate tracking
+  ```typescript
+  // Currency Service Interface
+  interface CurrencyService {
+    getExchangeRate(from: string, to: string): Promise<number>;
+    convertAmount(amount: number, from: string, to: string): Promise<number>;
+    getSupportedCurrencies(): string[];
+    updateExchangeRates(): Promise<void>;
+  }
+  
+  // Firebase Cloud Function for rate fetching
+  export const updateExchangeRates = functions.pubsub
+    .schedule('every 6 hours')
+    .onRun(async (context) => {
+      const rates = await fetchLatestRates(); // External API call
+      await admin.firestore().collection('currencies').doc('rates').set({
+        rates,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+      });
+    });
+  
+  // React Native currency conversion
+  export const convertCurrency = async (amount: number, from: string, to: string): Promise<number> => {
+    if (from === to) return amount;
+    
+    const ratesDoc = await getDoc(doc(db, 'currencies', 'rates'));
+    const rates = ratesDoc.data()?.rates;
+    
+    if (rates && rates[from] && rates[to]) {
+      return (amount / rates[from]) * rates[to];
+    }
+    
+    throw new Error('Exchange rate not available');
+  };
+  ```
   - Automatic transaction conversion
   - Multi-currency display options
   - Exchange rate alerts and notifications
@@ -456,389 +656,480 @@ service cloud.firestore {
 
 ## 🧩 System Components
 
-### 1. Web Application Layer (`nomadwallet/web/`)
+### 1. React Native Mobile Application
 
-#### 1.1 Flask Application (`app.py`)
-```python
-# Core Flask application with 50+ routes
-# Key responsibilities:
-- Route handling and request processing
-- Template rendering and response generation
-- Session management and user state
-- Error handling and logging
-- API endpoint management
+#### 1.1 Core App Structure (`src/`)
+```typescript
+// Main Application Entry Point
+// App.tsx - Root component with navigation and providers
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
+import { store, persistor } from './store/store';
+import { AppNavigator } from './navigation/AppNavigator';
+import { AuthProvider } from './contexts/AuthContext';
 
-# Major route groups:
-- Budget management routes (/setup, /transactions, /recurring_transactions)
-- Analytics routes (/analytics, /what_if)
-- Health routes (/medicine_alerts, /add_medicine)
-- Timezone routes (/timezone_comparison, /call_planner)
-- API routes (/api/budget_health, /api/spending_trend)
+export default function App() {
+  return (
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        <AuthProvider>
+          <NavigationContainer>
+            <AppNavigator />
+          </NavigationContainer>
+        </AuthProvider>
+      </PersistGate>
+    </Provider>
+  );
+}
 ```
 
-#### 1.2 Templates (`templates/`)
-```html
-<!-- Template Structure: -->
-├── base.html              # Master template with navigation
-├── dashboard.html         # Main financial dashboard
-├── setup.html            # Initial budget setup wizard
-├── transactions.html     # Transaction history and management
-├── add_transaction.html  # Transaction creation form
-├── recurring_transactions.html  # Recurring transaction management
-├── add_recurring.html    # Recurring transaction form
-├── medicine_alerts.html  # Medicine alert dashboard
-├── add_medicine.html     # Medicine alert creation
-├── timezone_comparison.html  # Timezone management
-├── add_timezone.html     # Timezone location form
-├── call_planner.html     # Call scheduling tool
-├── analytics.html        # Financial analytics dashboard
-├── what_if.html         # Scenario planning tool
-├── settings.html        # User preferences
-└── error.html          # Error page template
+#### 1.2 Screen Components (`src/screens/`)
+```typescript
+// Screen Structure:
+├── Auth/
+│   ├── LoginScreen.tsx           # User authentication
+│   ├── RegisterScreen.tsx        # User registration
+│   └── ForgotPasswordScreen.tsx  # Password recovery
+├── Dashboard/
+│   ├── DashboardScreen.tsx       # Main financial overview
+│   └── WelcomeScreen.tsx         # First-time user welcome
+├── Budget/
+│   ├── BudgetSetupScreen.tsx     # Initial budget configuration
+│   ├── TransactionsScreen.tsx    # Transaction history
+│   ├── AddTransactionScreen.tsx  # New transaction form
+│   └── AnalyticsScreen.tsx       # Financial analytics
+├── Health/
+│   ├── MedicineAlertsScreen.tsx  # Medicine reminder dashboard
+│   └── AddMedicineScreen.tsx     # New medicine alert form
+├── Location/
+│   ├── TimezoneScreen.tsx        # Timezone management
+│   └── CallPlannerScreen.tsx     # Call scheduling tool
+└── Settings/
+    ├── SettingsScreen.tsx        # App preferences
+    └── ProfileScreen.tsx         # User profile management
 ```
 
-#### 1.3 Static Assets (`static/`)
-```css
-/* CSS Architecture: */
-├── css/
-│   └── style.css         # Main stylesheet (2000+ lines)
-│       ├── Global styles and resets
-│       ├── Component-specific styles
-│       ├── Responsive design breakpoints
-│       └── Theme and color variables
+#### 1.3 Navigation System (`src/navigation/`)
+```typescript
+// Navigation Architecture:
+import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
-/* Key Design Features: */
-- Modern gradient backgrounds
-- Card-based layout system
-- Responsive grid layouts
-- Custom form styling
-- Interactive hover effects
-- Mobile-first responsive design
+// Root Navigation Types
+export type RootStackParamList = {
+  Auth: undefined;
+  Main: undefined;
+  Modal: { screen: string; params?: any };
+};
+
+// Main Tab Navigation
+export type MainTabParamList = {
+  Dashboard: undefined;
+  Budget: undefined;
+  Health: undefined;
+  Location: undefined;
+  Settings: undefined;
+};
+
+// Stack navigation for each tab with proper TypeScript typing
 ```
 
-### 2. Business Logic Layer (`nomadwallet/src/`)
+### 2. Firebase Backend Integration
 
-#### 2.1 Data Models (`models/`)
-```python
-# Core Data Models:
+#### 2.1 Firebase Services Configuration (`src/services/firebase/`)
+```typescript
+// Firebase Configuration and Services
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getFunctions } from 'firebase/functions';
 
-@dataclass
-class Transaction:
-    # Financial transaction representation
-    amount: float
-    currency: str
-    description: str
-    category: str
-    transaction_type: TransactionType
-    date: date
-    tags: List[str]
-    converted_amount: Optional[float]
-    exchange_rate: Optional[float]
+// Firebase Config
+const firebaseConfig = {
+  // Configuration from Firebase Console
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+};
 
-@dataclass
-class Budget:
-    # Budget configuration and state
-    total_initial_funds: float
-    base_currency: str
-    start_date: date
-    end_date: date
-    daily_allowance: float
-    current_balance: float
-
-@dataclass
-class RecurringTransaction:
-    # Automated recurring transactions
-    amount: float
-    currency: str
-    description: str
-    category: str
-    transaction_type: TransactionType
-    start_date: date
-    end_date: Optional[date]
-    frequency_days: int
-    is_active: bool
-
-@dataclass
-class MedicineAlert:
-    # Medicine reminder system
-    name: str
-    dosage: str
-    frequency_hours: int
-    start_time: str
-    start_date: date
-    end_date: Optional[date]
-    notes: str
-    timezone: str
-    is_active: bool
-
-@dataclass
-class TimezoneLocation:
-    # Timezone and location tracking
-    name: str
-    timezone: str
-    is_home: bool
-    is_current: bool
-
-@dataclass
-class UserProfile:
-    # Complete user data container
-    budget: Optional[Budget]
-    transactions: List[Transaction]
-    recurring_transactions: List[RecurringTransaction]
-    medicine_alerts: List[MedicineAlert]
-    timezone_locations: List[TimezoneLocation]
-    savings_goals: List[SavingsGoal]
-    categories: List[str]
-    quick_add_items: Dict[str, Dict]
+// Initialize Firebase
+export const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
+export const auth = getAuth(app);
+export const functions = getFunctions(app);
 ```
 
-#### 2.2 Services Layer (`services/`)
+#### 2.2 Firestore Data Services (`src/services/data/`)
+```typescript
+// Data Service Layer for Firestore Operations
+export class FirestoreService {
+  // User Profile Management
+  static async getUserProfile(userId: string): Promise<UserProfile | null> {
+    const docRef = doc(db, 'users', userId);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? docSnap.data() as UserProfile : null;
+  }
 
-##### 2.2.1 Data Service (`data_service.py`)
-```python
-class DataService:
-    """Core data persistence and management service"""
+  // Transaction Management
+  static async addTransaction(userId: string, transaction: Transaction): Promise<string> {
+    const transactionsRef = collection(db, 'users', userId, 'transactions');
+    const docRef = await addDoc(transactionsRef, {
+      ...transaction,
+      createdAt: serverTimestamp(),
+    });
+    return docRef.id;
+  }
+
+  // Real-time subscriptions for live data
+  static subscribeToTransactions(userId: string, callback: (transactions: Transaction[]) => void): () => void {
+    const transactionsRef = collection(db, 'users', userId, 'transactions');
+    const q = query(transactionsRef, orderBy('date', 'desc'));
     
-    # Key Responsibilities:
-    - User profile loading and saving
-    - Transaction management (CRUD operations)
-    - Recurring transaction handling
-    - Data validation and integrity
-    - JSON serialization/deserialization
-    - Backup and recovery operations
-    
-    # Key Methods:
-    def load_user_profile() -> UserProfile
-    def save_user_profile() -> bool
-    def add_transaction(transaction: Transaction)
-    def add_recurring_transaction(recurring: RecurringTransaction)
-    def is_first_time_user() -> bool
-    def setup_budget(funds, currency, start_date, end_date)
+    return onSnapshot(q, (querySnapshot) => {
+      const transactions = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Transaction[];
+      callback(transactions);
+    });
+  }
+}
 ```
 
-##### 2.2.2 Budget Analysis Service (`budget_analysis.py`)
-```python
-class BudgetAnalysisService:
-    """Financial analysis and insights generation"""
-    
-    # Key Responsibilities:
-    - Current balance calculation (real transactions only)
-    - Daily allowance computation
-    - Spending categorization and analysis
-    - Budget health monitoring
-    - Financial trend analysis
-    - What-if scenario modeling
-    
-    # Key Methods:
-    def calculate_current_balance() -> float
-    def calculate_daily_allowance() -> float
-    def get_spending_by_category(days: int) -> Dict[str, float]
-    def get_budget_health_status() -> Dict
-    def get_daily_spending_trend(days: int) -> List[Tuple]
-    def calculate_what_if_scenario(amount: float) -> Dict
+#### 2.3 Authentication Service (`src/services/auth/`)
+```typescript
+// Firebase Authentication Integration
+export class AuthService {
+  // Email/Password Authentication
+  static async signInWithEmail(email: string, password: string): Promise<User> {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  }
+
+  static async signUpWithEmail(email: string, password: string): Promise<User> {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    // Create user profile in Firestore
+    await this.createUserProfile(userCredential.user);
+    return userCredential.user;
+  }
+
+  // Social Authentication
+  static async signInWithGoogle(): Promise<User> {
+    const provider = new GoogleAuthProvider();
+    const userCredential = await signInWithPopup(auth, provider);
+    return userCredential.user;
+  }
+
+  // User Profile Creation
+  static async createUserProfile(user: User): Promise<void> {
+    const userRef = doc(db, 'users', user.uid);
+    await setDoc(userRef, {
+      email: user.email,
+      displayName: user.displayName,
+      createdAt: serverTimestamp(),
+      profile: {
+        categories: ['Food', 'Transportation', 'Accommodation', 'Entertainment'],
+        preferences: {
+          currency: 'USD',
+          language: 'en',
+          theme: 'light'
+        }
+      }
+    });
+  }
+}
 ```
 
-##### 2.2.3 Currency Service (`currency_service.py`)
-```python
-class CurrencyService:
-    """Multi-currency support and exchange rate management"""
-    
-    # Key Responsibilities:
-    - Live exchange rate fetching
-    - Currency conversion calculations
-    - Exchange rate caching and persistence
-    - Supported currency management
-    - Rate update scheduling
-    
-    # Key Methods:
-    def get_exchange_rate(from_currency: str, to_currency: str) -> float
-    def convert_amount(amount: float, from_curr: str, to_curr: str) -> float
-    def update_exchange_rates() -> bool
-    def get_supported_currencies() -> List[str]
+### 3. State Management Layer
+
+#### 3.1 Redux Store Configuration (`src/store/`)
+```typescript
+// Redux Toolkit Store Setup
+import { configureStore } from '@reduxjs/toolkit';
+import { persistStore, persistReducer } from 'redux-persist';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Slice Imports
+import authSlice from './slices/authSlice';
+import budgetSlice from './slices/budgetSlice';
+import transactionsSlice from './slices/transactionsSlice';
+import healthSlice from './slices/healthSlice';
+import settingsSlice from './slices/settingsSlice';
+
+// Persist Configuration
+const persistConfig = {
+  key: 'root',
+  storage: AsyncStorage,
+  whitelist: ['auth', 'settings'], // Only persist auth and settings
+};
+
+const rootReducer = combineReducers({
+  auth: authSlice,
+  budget: budgetSlice,
+  transactions: transactionsSlice,
+  health: healthSlice,
+  settings: settingsSlice,
+});
+
+const persistedReducer = persistReducer(persistConfig, rootReducer);
+
+export const store = configureStore({
+  reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+      },
+    }),
+});
 ```
 
-##### 2.2.4 Health & Timezone Service (`health_timezone_service.py`)
-```python
-class HealthTimezoneService:
-    """Health management and timezone coordination service"""
-    
-    # Key Responsibilities:
-    - Medicine alert scheduling and management
-    - Timezone conversion and comparison
-    - Call time optimization
-    - Health reminder generation
-    - Timezone-aware datetime handling
-    
-    # Key Methods:
-    def add_medicine_alert(alert: MedicineAlert) -> bool
-    def get_upcoming_medicine_alerts(hours: int) -> List[Dict]
-    def add_timezone_location(location: TimezoneLocation) -> bool
-    def get_timezone_comparison() -> Dict
-    def get_best_call_times(target_timezone: str) -> List[Dict]
-    def get_popular_timezones() -> List[Tuple]
-```
+#### 3.2 State Slices (`src/store/slices/`)
+```typescript
+// Budget Management Slice
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-#### 2.3 Utilities (`utils/`)
-```python
-# Utility Functions:
+interface BudgetState {
+  budget: Budget | null;
+  currentBalance: number;
+  dailyAllowance: number;
+  loading: boolean;
+  error: string | null;
+}
 
-def format_currency(amount: float, currency: str) -> str:
-    """Format currency amounts for display"""
+// Async Thunks for Firebase operations
+export const fetchBudget = createAsyncThunk(
+  'budget/fetchBudget',
+  async (userId: string) => {
+    const budget = await FirestoreService.getBudget(userId);
+    return budget;
+  }
+);
 
-def get_date_range_description(start_date: date, end_date: date) -> str:
-    """Generate human-readable date range descriptions"""
+export const updateBudget = createAsyncThunk(
+  'budget/updateBudget',
+  async ({ userId, budget }: { userId: string; budget: Budget }) => {
+    await FirestoreService.updateBudget(userId, budget);
+    return budget;
+  }
+);
 
-# Additional utility functions for:
-- Date and time manipulation
-- String formatting and validation
-- Data type conversions
-- Error handling helpers
+const budgetSlice = createSlice({
+  name: 'budget',
+  initialState,
+  reducers: {
+    setBudget: (state, action) => {
+      state.budget = action.payload;
+    },
+    updateBalance: (state, action) => {
+      state.currentBalance = action.payload;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchBudget.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchBudget.fulfilled, (state, action) => {
+        state.loading = false;
+        state.budget = action.payload;
+      })
+      .addCase(fetchBudget.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch budget';
+      });
+  },
+});
 ```
 
 ---
 
-## 📊 Data Models
+## 📊 Data Models (TypeScript Interfaces)
 
 ### 1. Core Financial Models
 
-#### 1.1 Transaction Model
-```python
-@dataclass
-class Transaction:
-    amount: float                    # Transaction amount in original currency
-    currency: str                    # ISO currency code (EUR, USD, etc.)
-    description: str                 # User description of transaction
-    category: str                    # Category (Food, Transport, etc.)
-    transaction_type: TransactionType # INCOME or EXPENSE
-    date: date                       # Transaction date
-    tags: List[str] = []            # Optional tags for filtering
-    converted_amount: Optional[float] # Amount in base currency
-    exchange_rate: Optional[float]   # Exchange rate used for conversion
-    
-    # Example:
-    # Transaction(
-    #     amount=25.50,
-    #     currency="EUR",
-    #     description="Lunch at local restaurant",
-    #     category="Food",
-    #     transaction_type=TransactionType.EXPENSE,
-    #     date=date(2025, 8, 17),
-    #     tags=["restaurant", "lunch"],
-    #     converted_amount=25.50,
-    #     exchange_rate=1.0
-    # )
+#### 1.1 Transaction Interface
+```typescript
+export interface Transaction {
+  id?: string;                     // Firestore document ID
+  amount: number;                  // Transaction amount in original currency
+  currency: string;                // ISO currency code (EUR, USD, etc.)
+  description: string;             // User description of transaction
+  category: string;                // Category (Food, Transport, etc.)
+  transactionType: 'INCOME' | 'EXPENSE'; // Transaction type
+  date: Date;                      // Transaction date
+  tags?: string[];                 // Optional tags for filtering
+  convertedAmount?: number;        // Amount in base currency
+  exchangeRate?: number;           // Exchange rate used for conversion
+  createdAt?: Date;               // Firestore timestamp
+  updatedAt?: Date;               // Last updated timestamp
+  
+  // Example:
+  // {
+  //   amount: 25.50,
+  //   currency: "EUR",
+  //   description: "Lunch at local restaurant",
+  //   category: "Food",
+  //   transactionType: "EXPENSE",
+  //   date: new Date("2025-08-17"),
+  //   tags: ["restaurant", "lunch"],
+  //   convertedAmount: 25.50,
+  //   exchangeRate: 1.0
+  // }
+}
 ```
 
-#### 1.2 Budget Model
-```python
-@dataclass
-class Budget:
-    total_initial_funds: float       # Total budget for entire trip
-    base_currency: str               # Primary currency for calculations
-    start_date: date                 # Trip/budget start date
-    end_date: date                   # Trip/budget end date
-    daily_allowance: float = 0.0     # Calculated daily allowance
-    current_balance: float = 0.0     # Current balance (updated by transactions)
-    
-    def __post_init__(self):
-        """Auto-calculate daily allowance and set initial balance"""
-        if self.daily_allowance == 0.0:
-            total_days = (self.end_date - self.start_date).days
-            if total_days > 0:
-                self.daily_allowance = self.total_initial_funds / total_days
-        
-        if self.current_balance == 0.0:
-            self.current_balance = self.total_initial_funds
+#### 1.2 Budget Interface
+```typescript
+export interface Budget {
+  id?: string;                     // Firestore document ID
+  totalInitialFunds: number;       // Total budget for entire trip
+  baseCurrency: string;            // Primary currency for calculations
+  startDate: Date;                 // Trip/budget start date
+  endDate: Date;                   // Trip/budget end date
+  dailyAllowance: number;          // Calculated daily allowance
+  currentBalance: number;          // Current balance (updated by transactions)
+  createdAt?: Date;               // Creation timestamp
+  updatedAt?: Date;               // Last updated timestamp
+  
+  // Auto-calculated fields
+  totalDays: number;              // Calculated: (endDate - startDate)
+  daysRemaining: number;          // Days left in budget period
+  averageDailySpending: number;   // Average spending per day so far
+}
 ```
 
-#### 1.3 Recurring Transaction Model
-```python
-@dataclass
-class RecurringTransaction:
-    amount: float                    # Recurring amount
-    currency: str                    # Currency code
-    description: str                 # Description (e.g., "Monthly rent")
-    category: str                    # Category classification
-    transaction_type: TransactionType # INCOME or EXPENSE
-    start_date: date                 # When recurring starts
-    end_date: Optional[date]         # When recurring ends (None = indefinite)
-    frequency_days: int              # Frequency in days (30 = monthly)
-    tags: List[str] = []            # Optional tags
-    is_active: bool = True          # Whether currently active
-    
-    # Examples:
-    # - Monthly salary: frequency_days=30, transaction_type=INCOME
-    # - Weekly transport: frequency_days=7, transaction_type=EXPENSE
-    # - Daily meal allowance: frequency_days=1, transaction_type=EXPENSE
+#### 1.3 User Profile Interface
+```typescript
+export interface UserProfile {
+  id: string;                     // Firebase Auth UID
+  email: string;                  // User email
+  displayName?: string;           // User display name
+  photoURL?: string;              // Profile photo URL
+  createdAt: Date;               // Account creation date
+  lastLoginAt?: Date;            // Last login timestamp
+  
+  // App-specific profile data
+  profile: {
+    categories: string[];          // Custom transaction categories
+    preferences: {
+      currency: string;           // Default currency
+      language: string;           // App language preference
+      theme: 'light' | 'dark';    // UI theme preference
+      notifications: {
+        medicineAlerts: boolean;
+        budgetWarnings: boolean;
+        dailySummary: boolean;
+      };
+    };
+    subscription?: {
+      plan: 'free' | 'premium';
+      expiresAt?: Date;
+    };
+  };
+}
 ```
 
 ### 2. Health Management Models
 
-#### 2.1 Medicine Alert Model
-```python
-@dataclass
-class MedicineAlert:
-    name: str                        # Medicine name
-    dosage: str                      # Dosage instructions (e.g., "10mg")
-    frequency_hours: int             # Hours between doses (e.g., 8 for 3x daily)
-    start_time: str                  # First dose time (HH:MM format)
-    start_date: date                 # Start date for medication
-    end_date: Optional[date] = None  # End date (None = ongoing)
-    notes: str = ""                  # Additional notes/instructions
-    timezone: str = "UTC"            # Timezone for scheduling
-    is_active: bool = True           # Whether alert is active
-    created_date: date = field(default_factory=date.today)
-    
-    # Example:
-    # MedicineAlert(
-    #     name="Vitamin D",
-    #     dosage="1000 IU",
-    #     frequency_hours=24,  # Once daily
-    #     start_time="08:00",
-    #     start_date=date(2025, 8, 17),
-    #     notes="Take with breakfast",
-    #     timezone="Europe/Lisbon"
-    # )
+#### 2.1 Medicine Alert Interface
+```typescript
+export interface MedicineAlert {
+  id?: string;                    // Firestore document ID
+  name: string;                   // Medicine name
+  dosage: string;                 // Dosage instructions (e.g., "10mg")
+  frequencyHours: number;         // Hours between doses
+  startTime: string;              // First dose time (HH:MM format)
+  startDate: Date;                // Start date for medication
+  endDate?: Date;                 // End date (optional)
+  notes?: string;                 // Additional notes/instructions
+  timezone: string;               // Timezone for scheduling
+  isActive: boolean;              // Whether alert is active
+  createdAt?: Date;              // Creation timestamp
+  
+  // Computed fields for scheduling
+  nextDoseAt?: Date;             // Next scheduled dose
+  totalDoses?: number;           // Total doses per day
+}
 ```
 
-### 3. Timezone Management Models
+### 3. Location & Timezone Models
 
-#### 3.1 Timezone Location Model
-```python
-@dataclass
-class TimezoneLocation:
-    name: str                        # Location name (e.g., "Home - New York")
-    timezone: str                    # Timezone identifier (e.g., "America/New_York")
-    is_home: bool = False           # Whether this is home location
-    is_current: bool = False        # Whether currently at this location
-    added_date: date = field(default_factory=date.today)
-    
-    # Examples:
-    # TimezoneLocation("Home - New York", "America/New_York", is_home=True)
-    # TimezoneLocation("Current - Lisbon", "Europe/Lisbon", is_current=True)
-    # TimezoneLocation("Client - Tokyo", "Asia/Tokyo")
+#### 3.1 Timezone Location Interface
+```typescript
+export interface TimezoneLocation {
+  id?: string;                   // Firestore document ID
+  name: string;                  // Location name (e.g., "Home - New York")
+  timezone: string;              // Timezone identifier (e.g., "America/New_York")
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  isHome: boolean;              // Whether this is home location
+  isCurrent: boolean;           // Whether currently at this location
+  addedAt: Date;                // When location was added
+  
+  // Additional metadata
+  city?: string;                // City name
+  country?: string;             // Country name
+  countryCode?: string;         // ISO country code
+}
 ```
 
-### 4. User Profile Model
-```python
-@dataclass
-class UserProfile:
-    """Complete user data container"""
-    budget: Optional[Budget] = None
-    transactions: List[Transaction] = field(default_factory=list)
-    recurring_transactions: List[RecurringTransaction] = field(default_factory=list)
-    medicine_alerts: List[MedicineAlert] = field(default_factory=list)
-    timezone_locations: List[TimezoneLocation] = field(default_factory=list)
-    savings_goals: List[SavingsGoal] = field(default_factory=list)
-    categories: List[str] = field(default_factory=lambda: [
-        "Food", "Transportation", "Accommodation", "Entertainment", 
-        "Shopping", "Healthcare", "Education", "Miscellaneous"
-    ])
-    quick_add_items: Dict[str, Dict] = field(default_factory=dict)
+### 4. Firebase Firestore Collections Structure
+
+```typescript
+// Firestore Database Schema
+interface FirestoreSchema {
+  users: {
+    [userId: string]: UserProfile;
     
-    # Serialization methods for JSON persistence
-    def to_dict(self) -> Dict
-    def from_dict(cls, data: Dict) -> 'UserProfile'
+    // Subcollections
+    transactions: {
+      [transactionId: string]: Transaction;
+    };
+    
+    budgets: {
+      [budgetId: string]: Budget;
+    };
+    
+    medicineAlerts: {
+      [alertId: string]: MedicineAlert;
+    };
+    
+    timezoneLocations: {
+      [locationId: string]: TimezoneLocation;
+    };
+    
+    recurringTransactions: {
+      [recurringId: string]: RecurringTransaction;
+    };
+  };
+  
+  // Global collections
+  currencies: {
+    [currencyCode: string]: {
+      name: string;
+      symbol: string;
+      rates: { [toCurrency: string]: number };
+      lastUpdated: Date;
+    };
+  };
+  
+  categories: {
+    [categoryId: string]: {
+      name: string;
+      icon: string;
+      color: string;
+      isDefault: boolean;
+    };
+  };
+}
 ```
 
 ---
@@ -849,184 +1140,309 @@ class UserProfile:
 
 #### 1.1 Automatic Location Detection
 - **Feature ID:** FI-001
-- **Description:** Automatic user location identification and timezone detection
+- **Description:** Automatic user location identification and timezone detection using React Native
 - **Implementation Plan:**
-  ```python
-  # Technical Implementation:
-  - Browser Geolocation API integration
-  - IP-based location fallback
-  - GPS coordinates processing
-  - Timezone automatic detection
-  - Location history tracking
+  ```typescript
+  // Technical Implementation using React Native and Expo
+  import * as Location from 'expo-location';
+  import * as TimeZone from 'expo-localization';
   
-  # Components to Add:
-  class LocationService:
-      def get_current_location() -> Tuple[float, float]  # lat, lng
-      def detect_timezone_from_location(lat: float, lng: float) -> str
-      def get_location_from_ip() -> Dict
-      def update_current_timezone() -> bool
+  export class LocationService {
+    // GPS location detection
+    static async getCurrentLocation(): Promise<{latitude: number, longitude: number}> {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') throw new Error('Location permission denied');
+      
+      const location = await Location.getCurrentPositionAsync({});
+      return {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      };
+    }
+
+    // Timezone detection from location
+    static async detectTimezoneFromLocation(lat: number, lng: number): Promise<string> {
+      // Use Google Maps Time Zone API via Firebase Functions
+      const timeZone = await this.callTimeZoneAPI(lat, lng);
+      return timeZone;
+    }
+
+    // IP-based location fallback
+    static async getLocationFromIP(): Promise<LocationData> {
+      // Fallback location detection for when GPS is unavailable
+      const response = await fetch('https://ipapi.co/json/');
+      return await response.json();
+    }
+
+    // Update user's current timezone in Firestore
+    static async updateCurrentTimezone(userId: string, timezone: string): Promise<void> {
+      await FirestoreService.updateUserTimezone(userId, timezone);
+    }
+  }
   
-  # Integration Points:
-  - Automatic timezone updates when traveling
-  - Medicine alert timezone adjustments
-  - Location-based spending categories
-  - Currency suggestions based on location
+  // Integration Points:
+  // - Automatic timezone updates when traveling
+  // - Medicine alert timezone adjustments
+  // - Location-based spending categories
+  // - Currency suggestions based on location
   ```
 
 #### 1.2 Smart Spending Recommendations
 - **Feature ID:** FI-002
-- **Description:** AI-powered recommendations for restaurants, shops, and markets based on daily budget and location
+- **Description:** AI-powered recommendations using Google Places API and Firebase ML
 - **Implementation Plan:**
-  ```python
-  # Recommendation Engine:
-  class SpendingRecommendationService:
-      def get_restaurant_recommendations(
-          budget_available: float,
-          location: Tuple[float, float],
-          cuisine_preferences: List[str]
-      ) -> List[Dict]
-      
-      def get_grocery_recommendations(
-          budget_available: float,
-          location: Tuple[float, float]
-      ) -> List[Dict]
-      
-      def get_shopping_recommendations(
-          category: str,
-          budget_available: float,
-          location: Tuple[float, float]
-      ) -> List[Dict]
+  ```typescript
+  // Recommendation Engine using React Native and Firebase
+  export class SpendingRecommendationService {
+    static async getRestaurantRecommendations(
+      budgetAvailable: number,
+      location: {latitude: number, longitude: number},
+      cuisinePreferences: string[]
+    ): Promise<PlaceRecommendation[]> {
+      // Use Google Places API via Firebase Functions
+      return await this.searchNearbyPlaces('restaurant', location, budgetAvailable);
+    }
+    
+    static async getGroceryRecommendations(
+      budgetAvailable: number,
+      location: {latitude: number, longitude: number}
+    ): Promise<PlaceRecommendation[]> {
+      return await this.searchNearbyPlaces('grocery_or_supermarket', location, budgetAvailable);
+    }
+    
+    static async getShoppingRecommendations(
+      category: string,
+      budgetAvailable: number,
+      location: {latitude: number, longitude: number}
+    ): Promise<PlaceRecommendation[]> {
+      return await this.searchNearbyPlaces(category, location, budgetAvailable);
+    }
+  }
   
-  # Data Sources Integration:
-  - Google Places API for business information
-  - Yelp API for reviews and pricing
-  - Foursquare for location data
-  - TripAdvisor for travel-specific recommendations
+  // Data Sources Integration:
+  // - Google Places API for business information
+  // - Firebase ML Kit for recommendation scoring
+  // - Firestore for user preferences and history
+  // - Currency conversion API for price normalization
   
-  # Recommendation Logic:
-  def calculate_recommendation_score(
-      venue_price_range: str,
-      user_daily_budget: float,
-      venue_rating: float,
-      distance_km: float
-  ) -> float:
-      # Algorithm considers:
-      # - Price compatibility with remaining daily budget
-      # - Quality ratings and reviews
-      # - Distance from current location
-      # - Historical user preferences
-      # - Time of day and meal/shopping patterns
+  // Recommendation Logic:
+  interface RecommendationScore {
+    venue: PlaceData;
+    score: number;
+    reasoning: string[];
+  }
+
+  static calculateRecommendationScore(
+    venuePriceRange: string,
+    userDailyBudget: number,
+    venueRating: number,
+    distanceKm: number
+  ): number {
+    // Algorithm considers:
+    // - Price compatibility with remaining daily budget
+    // - Quality ratings and reviews
+    // - Distance from current location
+    // - Historical user preferences
+    // - Time of day and meal/shopping patterns
+    
+    let score = 0;
+    
+    // Price compatibility (40% weight)
+    const priceScore = this.calculatePriceCompatibility(venuePriceRange, userDailyBudget);
+    score += priceScore * 0.4;
+    
+    // Quality rating (30% weight)
+    score += (venueRating / 5) * 0.3;
+    
+    // Distance penalty (20% weight)
+    const distanceScore = Math.max(0, 1 - (distanceKm / 5)); // Penalty after 5km
+    score += distanceScore * 0.2;
+    
+    // User preference bonus (10% weight)
+    score += 0.1; // Placeholder for historical preferences
+    
+    return score;
+  }
   ```
 
 #### 1.3 Budget-Aware Venue Suggestions
 - **Feature ID:** FI-003
-- **Description:** Dynamic venue recommendations based on current budget status
+- **Description:** Dynamic venue recommendations based on current budget status using TypeScript enums
 - **Features:**
-  ```python
-  # Budget Status Categories:
-  HIGH_BUDGET = "high"      # 150%+ of daily allowance available
-  NORMAL_BUDGET = "normal"  # 80-150% of daily allowance available
-  LOW_BUDGET = "low"        # 50-80% of daily allowance available
-  CRITICAL_BUDGET = "critical"  # <50% of daily allowance available
+  ```typescript
+  // Budget Status Categories
+  enum BudgetStatus {
+    HIGH = 'high',      // 150%+ of daily allowance available
+    NORMAL = 'normal',  // 80-150% of daily allowance available
+    LOW = 'low',        // 50-80% of daily allowance available
+    CRITICAL = 'critical' // <50% of daily allowance available
+  }
   
-  # Recommendation Strategies:
-  if budget_status == HIGH_BUDGET:
-      # Recommend premium options
-      - High-end restaurants and experiences
-      - Quality shopping destinations
-      - Premium transportation options
-      
-  elif budget_status == NORMAL_BUDGET:
-      # Balanced recommendations
-      - Mid-range dining options
-      - Moderate shopping venues
+  // Recommendation Strategies
+  export class BudgetAwareRecommendations {
+    static getRecommendationsByBudget(budgetStatus: BudgetStatus): RecommendationStrategy {
+      switch (budgetStatus) {
+        case BudgetStatus.HIGH:
+          // Recommend premium options
+          return {
+            restaurants: ['fine_dining', 'upscale_casual'],
+            shopping: ['premium_brands', 'department_stores'],
+            transport: ['taxi', 'premium_ride_share'],
+            activities: ['premium_experiences', 'guided_tours']
+          };
+          
+        case BudgetStatus.NORMAL:
+          // Balanced recommendations
+          return {
+            restaurants: ['casual_dining', 'local_favorites'],
+            shopping: ['mid_range_stores', 'local_markets'],
       - Standard transportation
-      
-  elif budget_status == LOW_BUDGET:
-      # Budget-friendly options
-      - Local, affordable restaurants
-      - Discount stores and markets
-      - Public transportation
-      
-  elif budget_status == CRITICAL_BUDGET:
-      # Survival mode recommendations
-      - Grocery stores for cooking
-      - Free activities and attractions
-      - Walking directions
-      - Emergency budget tips
+            transport: ['public_transport', 'ride_share'],
+            activities: ['local_experiences', 'cultural_sites']
+          };
+          
+        case BudgetStatus.LOW:
+          // Budget-friendly options
+          return {
+            restaurants: ['local_eateries', 'street_food', 'food_courts'],
+            shopping: ['discount_stores', 'local_markets', 'thrift_shops'],
+            transport: ['public_transport', 'walking'],
+            activities: ['free_attractions', 'parks', 'self_guided_tours']
+          };
+          
+        case BudgetStatus.CRITICAL:
+          // Survival mode recommendations
+          return {
+            restaurants: ['grocery_stores', 'convenience_stores'],
+            shopping: ['essential_only', 'bargain_stores'],
+            transport: ['walking', 'bike_share'],
+            activities: ['free_activities', 'public_spaces'],
+            tips: ['cook_at_accommodation', 'use_happy_hours', 'seek_free_wifi']
+          };
+      }
+    }
+  }
   ```
 
 ### 2. Advanced Analytics & AI
 
 #### 2.1 Predictive Budget Analytics
 - **Feature ID:** FI-004
-- **Description:** Machine learning-powered spending prediction and budget optimization
+- **Description:** Machine learning-powered spending prediction using Firebase ML Kit
 - **Implementation:**
-  ```python
-  class PredictiveAnalyticsService:
-      def predict_monthly_spending(
-          historical_data: List[Transaction],
-          upcoming_events: List[Dict]
-      ) -> Dict[str, float]
-      
-      def detect_spending_anomalies(
-          recent_transactions: List[Transaction]
-      ) -> List[Dict]
-      
-      def optimize_budget_allocation(
-          total_budget: float,
-          travel_duration: int,
-          destination_factors: Dict
-      ) -> Dict[str, float]
-      
-      def generate_saving_opportunities() -> List[Dict]
+  ```typescript
+  export class PredictiveAnalyticsService {
+    static async predictMonthlySpending(
+      historicalData: Transaction[],
+      upcomingEvents: CalendarEvent[]
+    ): Promise<{[category: string]: number}> {
+      // Use Firebase ML Kit for prediction models
+      const model = await this.loadPredictionModel();
+      return await model.predict(historicalData, upcomingEvents);
+    }
+    
+    static async detectSpendingAnomalies(
+      recentTransactions: Transaction[]
+    ): Promise<SpendingAnomaly[]> {
+      // Anomaly detection using statistical analysis
+      const patterns = await this.analyzeSpendingPatterns(recentTransactions);
+      return this.identifyAnomalies(patterns);
+    }
+    
+    static async optimizeBudgetAllocation(
+      totalBudget: number,
+      travelDuration: number,
+      destinationFactors: DestinationData
+    ): Promise<{[category: string]: number}> {
+      // AI-powered budget optimization
+      const costOfLiving = await this.getCostOfLivingData(destinationFactors.city);
+      return this.calculateOptimalAllocation(totalBudget, travelDuration, costOfLiving);
+    }
+    
+    static async generateSavingOpportunities(userId: string): Promise<SavingOpportunity[]> {
+      // Analyze user spending patterns for savings suggestions
+      const userProfile = await FirestoreService.getUserProfile(userId);
+      return this.identifySavingOpportunities(userProfile);
+    }
+  }
   ```
 
 #### 2.2 Smart Health Management
 - **Feature ID:** FI-005
 - **Description:** AI-enhanced health monitoring and medicine management
 - **Features:**
-  ```python
-  class SmartHealthService:
-      def analyze_medicine_adherence() -> Dict
-      def predict_health_risks_while_traveling() -> List[Dict]
-      def recommend_local_healthcare_providers() -> List[Dict]
-      def generate_health_travel_checklist() -> List[str]
-      def integrate_with_wearable_devices() -> bool
+  ```typescript
+  // Smart Health Service Implementation
+  export class SmartHealthService {
+    static async analyzeMedicineAdherence(userId: string): Promise<HealthAnalysis> {
+      // Analyze user's medicine-taking patterns
+      const alerts = await FirestoreService.getMedicineAlerts(userId);
+      const adherenceData = await this.calculateAdherence(alerts);
+      return adherenceData;
+    }
+
+    static async predictHealthRisks(travelData: TravelProfile): Promise<HealthRisk[]> {
+      // Use Firebase ML Kit for health risk prediction
+      const risks = await this.analyzeDestinationHealthRisks(travelData);
+      return risks;
+    }
+
+    static async recommendHealthcareProviders(location: Location): Promise<HealthcareProvider[]> {
+      // Integration with Google Places API for healthcare providers
+      const providers = await GooglePlacesService.findNearbyHealthcare(location);
+      return providers;
+    }
+
+    static generateTravelHealthChecklist(destination: string): HealthChecklistItem[] {
+      // Generate personalized health checklist for travel
+      return this.createPersonalizedChecklist(destination);
+    }
+  }
   ```
 
 ### 3. Enhanced User Experience
 
-#### 3.1 Mobile Application
+#### 3.1 React Native Mobile Features
 - **Feature ID:** FI-006
-- **Description:** Native mobile apps for iOS and Android
-- **Technology Stack:**
-  - React Native or Flutter for cross-platform development
-  - Offline-first architecture with data synchronization
-  - Push notifications for medicine alerts and budget warnings
-  - Camera integration for receipt scanning
-  - GPS integration for automatic location tracking
+- **Description:** Advanced mobile capabilities leveraging React Native ecosystem
+- **Technology Implementation:**
+  - **Offline-First Architecture**: Redux Persist + Firestore offline support
+  - **Push Notifications**: Firebase Cloud Messaging integration
+  - **Camera Integration**: React Native Camera for receipt scanning with OCR
+  - **GPS Integration**: Expo Location for automatic location tracking
+  - **Biometric Authentication**: Expo LocalAuthentication for secure access
 
-#### 3.2 Voice Interface
+#### 3.2 Voice Interface Integration
 - **Feature ID:** FI-007
-- **Description:** Voice-controlled expense logging and budget queries
+- **Description:** Voice-controlled expense logging and budget queries using React Native Voice
 - **Implementation:**
-  ```python
-  # Voice Commands:
-  "Add expense 25 euros for lunch"
-  "How much can I spend today?"
-  "What's my budget status?"
-  "When is my next medicine dose?"
-  "What time is it in New York?"
+  ```typescript
+  // Voice Commands Integration
+  import Voice from '@react-native-voice/voice';
+  
+  export class VoiceService {
+    static async processVoiceCommand(command: string): Promise<VoiceAction> {
+      // Voice command examples:
+      // "Add expense 25 euros for lunch"
+      // "How much can I spend today?"
+      // "What's my budget status?"
+      // "When is my next medicine dose?"
+      // "What time is it in New York?"
+      
+      const action = await this.parseVoiceCommand(command);
+      return this.executeVoiceAction(action);
+    }
+  }
   ```
 
-#### 3.3 Smart Notifications
+#### 3.3 Smart Push Notifications
 - **Feature ID:** FI-008
-- **Description:** Intelligent notification system
-- **Features:**
-  - Proactive budget warnings
-  - Smart medicine reminders with snooze options
-  - Weekly spending summaries
+- **Description:** Intelligent notification system using Firebase Cloud Messaging
+- **React Native Features:**
+  - Proactive budget warnings with spending trend analysis
+  - Smart medicine reminders with snooze and skip options
+  - Weekly spending summaries with insights
+  - Location-based currency suggestions
   - Currency exchange rate alerts
   - Travel-specific notifications
 
