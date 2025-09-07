@@ -1450,14 +1450,54 @@ interface FirestoreSchema {
 
 #### 4.1 Travel Group Budget Management
 - **Feature ID:** FI-009
-- **Description:** Shared budgets and expense splitting for travel groups
+- **Description:** Shared budgets and expense splitting for travel groups using Firebase
 - **Features:**
-  ```python
-  class GroupBudgetService:
-      def create_shared_budget(participants: List[str]) -> str
-      def split_expense(amount: float, participants: List[str]) -> Dict
-      def track_group_spending() -> Dict
-      def settle_group_expenses() -> Dict
+  ```typescript
+  export class GroupBudgetService {
+    static async createSharedBudget(participants: string[]): Promise<string> {
+      // Create shared budget in Firestore with participants
+      const groupBudgetRef = collection(db, 'groupBudgets');
+      const docRef = await addDoc(groupBudgetRef, {
+        participants,
+        createdAt: serverTimestamp(),
+        isActive: true,
+        expenses: []
+      });
+      
+      // Add permissions for all participants
+      await this.addParticipantPermissions(docRef.id, participants);
+      return docRef.id;
+    }
+    
+    static async splitExpense(groupBudgetId: string, amount: number, participants: string[]): Promise<ExpenseSplit> {
+      const splitAmount = amount / participants.length;
+      const split: ExpenseSplit = {
+        totalAmount: amount,
+        splitAmount,
+        participants: participants.map(p => ({
+          userId: p,
+          amount: splitAmount,
+          isPaid: false
+        }))
+      };
+      
+      await this.addExpenseToGroup(groupBudgetId, split);
+      return split;
+    }
+    
+    static async trackGroupSpending(groupBudgetId: string): Promise<GroupSpendingData> {
+      const groupDoc = await getDoc(doc(db, 'groupBudgets', groupBudgetId));
+      const expenses = groupDoc.data()?.expenses || [];
+      
+      return this.calculateGroupMetrics(expenses);
+    }
+    
+    static async settleGroupExpenses(groupBudgetId: string): Promise<SettlementData> {
+      // Calculate who owes whom and generate settlement suggestions
+      const spendingData = await this.trackGroupSpending(groupBudgetId);
+      return this.generateSettlementPlan(spendingData);
+    }
+  }
   ```
 
 #### 4.2 Community Features
@@ -1474,14 +1514,66 @@ interface FirestoreSchema {
 
 #### 5.1 Banking Integration
 - **Feature ID:** FI-011
-- **Description:** Direct bank account and credit card integration
+- **Description:** Direct bank account and credit card integration using secure APIs
 - **Implementation:**
-  ```python
-  class BankingIntegrationService:
-      def connect_bank_account(bank_credentials: Dict) -> bool
-      def sync_transactions() -> List[Transaction]
-      def categorize_transactions_automatically() -> bool
-      def detect_duplicate_entries() -> List[Transaction]
+  ```typescript
+  export class BankingIntegrationService {
+    static async connectBankAccount(bankCredentials: BankCredentials): Promise<boolean> {
+      try {
+        // Use secure banking API (Plaid, Yodlee, or Open Banking)
+        const bankConnection = await PlaidService.createLinkToken(bankCredentials);
+        await FirestoreService.storeBankConnection(bankConnection);
+        return true;
+      } catch (error) {
+        console.error('Bank connection failed:', error);
+        return false;
+      }
+    }
+    
+    static async syncTransactions(userId: string): Promise<Transaction[]> {
+      // Fetch transactions from connected bank accounts
+      const bankConnections = await FirestoreService.getBankConnections(userId);
+      const allTransactions: Transaction[] = [];
+      
+      for (const connection of bankConnections) {
+        const bankTransactions = await PlaidService.getTransactions(connection.accessToken);
+        const normalizedTransactions = this.normalizeTransactions(bankTransactions);
+        allTransactions.push(...normalizedTransactions);
+      }
+      
+      return allTransactions;
+    }
+    
+    static async categorizeTransactionsAutomatically(transactions: Transaction[]): Promise<boolean> {
+      // Use Firebase ML Kit for automatic categorization
+      const mlModel = await MLKitService.loadCategorizationModel();
+      
+      for (const transaction of transactions) {
+        const predictedCategory = await mlModel.predict(transaction.description);
+        transaction.category = predictedCategory;
+      }
+      
+      return true;
+    }
+    
+    static async detectDuplicateEntries(transactions: Transaction[]): Promise<Transaction[]> {
+      // Detect duplicates based on amount, date, and description similarity
+      return transactions.filter((transaction, index, self) => 
+        !self.some((other, otherIndex) => 
+          otherIndex < index && 
+          this.isDuplicateTransaction(transaction, other)
+        )
+      );
+    }
+    
+    private static isDuplicateTransaction(tx1: Transaction, tx2: Transaction): boolean {
+      return (
+        Math.abs(tx1.amount - tx2.amount) < 0.01 &&
+        Math.abs(tx1.date.getTime() - tx2.date.getTime()) < 24 * 60 * 60 * 1000 &&
+        this.similarityScore(tx1.description, tx2.description) > 0.8
+      );
+    }
+  }
   ```
 
 #### 5.2 Travel Platform Integration
@@ -1496,13 +1588,49 @@ interface FirestoreSchema {
 
 #### 5.3 Cryptocurrency Support
 - **Feature ID:** FI-013
-- **Description:** Cryptocurrency transaction tracking and management
+- **Description:** Cryptocurrency transaction tracking and management using React Native
 - **Features:**
-  ```python
-  class CryptoService:
-      def track_crypto_transactions() -> List[Transaction]
-      def convert_crypto_to_fiat(amount: float, crypto_type: str) -> float
-      def analyze_crypto_volatility_impact() -> Dict
+  ```typescript
+  export class CryptoService {
+    static async trackCryptoTransactions(userId: string): Promise<Transaction[]> {
+      // Integration with crypto APIs (CoinGecko, CoinMarketCap)
+      const cryptoWallets = await FirestoreService.getCryptoWallets(userId);
+      const transactions: Transaction[] = [];
+      
+      for (const wallet of cryptoWallets) {
+        const walletTransactions = await this.fetchWalletTransactions(wallet);
+        transactions.push(...walletTransactions);
+      }
+      
+      return transactions;
+    }
+    
+    static async convertCryptoToFiat(amount: number, cryptoType: string, fiatCurrency: string): Promise<number> {
+      // Get real-time crypto prices
+      const cryptoPrice = await CoinGeckoAPI.getPrice(cryptoType, fiatCurrency);
+      return amount * cryptoPrice;
+    }
+    
+    static async analyzeCryptoVolatilityImpact(userId: string): Promise<VolatilityAnalysis> {
+      const cryptoTransactions = await this.trackCryptoTransactions(userId);
+      const currentPrices = await this.getCurrentPrices(cryptoTransactions);
+      
+      return {
+        totalValue: this.calculateTotalValue(cryptoTransactions, currentPrices),
+        volatilityScore: this.calculateVolatilityScore(cryptoTransactions),
+        riskAssessment: this.assessPortfolioRisk(cryptoTransactions),
+        recommendations: this.generateRecommendations(cryptoTransactions)
+      };
+    }
+    
+    static async addCryptoWallet(userId: string, wallet: CryptoWallet): Promise<void> {
+      const walletsRef = collection(db, 'users', userId, 'cryptoWallets');
+      await addDoc(walletsRef, {
+        ...wallet,
+        addedAt: serverTimestamp()
+      });
+    }
+  }
   ```
 
 ### 6. Business Intelligence & Reporting
@@ -1537,19 +1665,75 @@ interface FirestoreSchema {
 ### 1. Current Security Measures
 
 #### 1.1 Data Protection
-```python
-# Current Implementation:
-- Local JSON file storage (development environment)
-- Input validation and sanitization
-- Session-based state management
-- Error handling without data exposure
-- CORS configuration for web security
+```typescript
+// Firebase Security Implementation:
+// - End-to-end encryption with Firebase Auth
+// - Firestore Security Rules for data access control
+// - Secure API endpoints with Firebase Functions
+// - Input validation and sanitization
+// - Biometric authentication on mobile devices
+// - Token-based authentication with automatic refresh
+
+// Example Firestore Security Rules
+const securityRules = `
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only access their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Sub-collections inherit parent permissions
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Group budgets require participant membership
+    match /groupBudgets/{groupId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid in resource.data.participants;
+    }
+  }
+}`;
 ```
 
 #### 1.2 Input Validation
-```python
-# Validation Examples:
-def validate_transaction_input(form_data: Dict) -> bool:
+```typescript
+// TypeScript Input Validation with Zod
+import { z } from 'zod';
+
+export const TransactionSchema = z.object({
+  amount: z.number().positive().finite(),
+  currency: z.string().length(3).regex(/^[A-Z]{3}$/),
+  description: z.string().min(1).max(200),
+  category: z.string().min(1).max(50),
+  transactionType: z.enum(['INCOME', 'EXPENSE']),
+  date: z.date().max(new Date()),
+  tags: z.array(z.string()).optional()
+});
+
+export const validateTransactionInput = (data: unknown): Transaction => {
+  try {
+    return TransactionSchema.parse(data);
+  } catch (error) {
+    throw new ValidationError('Invalid transaction data', error);
+  }
+};
+
+// Form validation with React Hook Form
+export const useTransactionForm = () => {
+  const {
+    control,
+    handleSubmit,
+    formState: { errors }
+  } = useForm<Transaction>({
+    resolver: zodResolver(TransactionSchema)
+  });
+  
+  return { control, handleSubmit, errors };
+};
+```
     # Amount validation
     if not isinstance(amount := float(form_data.get('amount', 0)), float) or amount <= 0:
         raise ValueError("Invalid amount")
