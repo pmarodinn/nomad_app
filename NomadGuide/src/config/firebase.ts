@@ -4,14 +4,14 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Configuração do Firebase para mobile
-// IMPORTANTE: Substitua os valores abaixo pelos do seu google-services.json
+// TEMPORÁRIA PARA TESTES - Substitua pelos valores reais do Firebase Console
 const firebaseConfig = {
-  apiKey: "your-api-key-here", // Pegar do google-services.json
-  authDomain: "your-project-id.firebaseapp.com", // Pegar do google-services.json
-  projectId: "your-project-id", // Pegar do google-services.json
-  storageBucket: "your-project-id.appspot.com", // Pegar do google-services.json
-  messagingSenderId: "1053963071181", // Do seu App ID
-  appId: "1:1053963071181:android:207a38563eb737d9640384" // Seu App ID real
+  apiKey: "AIzaSyDQtest-test-test-test-test-testkey",
+  authDomain: "nomadguide-test.firebaseapp.com",
+  projectId: "nomadguide-test",
+  storageBucket: "nomadguide-test.appspot.com",
+  messagingSenderId: "1053963071181",
+  appId: "1:1053963071181:android:207a38563eb737d9640384"
 };
 
 // Inicializar Firebase

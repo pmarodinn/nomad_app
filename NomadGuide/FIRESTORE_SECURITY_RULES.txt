@@ -1,0 +1,214 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() { 
+      return request.auth != null; 
+    }
+    
+    function isOwner(userId) { 
+      return isSignedIn() && request.auth.uid == userId; 
+    }
+    
+    function hasValidUserId(data) {
+      return data.keys().hasAny(['userId']) && data.userId == request.auth.uid;
+    }
+    
+    function isValidString(value, maxLength) {
+      return value is string && value.size() <= maxLength;
+    }
+    
+    function isValidNumber(value) {
+      return value is number;
+    }
+    
+    function isValidTimestamp(value) {
+      return value is timestamp;
+    }
+    
+    function isValidArray(value) {
+      return value is list;
+    }
+
+    // =========================
+    // HEALTH DATA COLLECTIONS
+    // =========================
+    
+    // Health Metrics
+    match /healthMetrics/{metricId} {
+      allow read, write: if isSignedIn() && hasValidUserId(resource.data);
+      allow create: if isSignedIn() && hasValidUserId(request.resource.data)
+        && isValidString(request.resource.data.type, 50)
+        && isValidNumber(request.resource.data.value)
+        && isValidString(request.resource.data.unit, 20)
+        && isValidTimestamp(request.resource.data.date)
+        && isValidTimestamp(request.resource.data.createdAt);
+    }
+    
+    // Medications
+    match /medications/{medicationId} {
+      allow read, write: if isSignedIn() && hasValidUserId(resource.data);
+      allow create: if isSignedIn() && hasValidUserId(request.resource.data)
+        && isValidString(request.resource.data.name, 100)
+        && isValidString(request.resource.data.dosage, 50)
+        && isValidString(request.resource.data.frequency, 50)
+        && isValidTimestamp(request.resource.data.nextDose)
+        && isValidTimestamp(request.resource.data.createdAt);
+    }
+    
+    // Health Goals
+    match /healthGoals/{goalId} {
+      allow read, write: if isSignedIn() && hasValidUserId(resource.data);
+      allow create: if isSignedIn() && hasValidUserId(request.resource.data)
+        && isValidString(request.resource.data.title, 100)
+        && isValidString(request.resource.data.type, 50)
+        && isValidNumber(request.resource.data.targetValue)
+        && isValidTimestamp(request.resource.data.createdAt);
+    }
+
+    // =========================
+    // BUDGET DATA COLLECTIONS
+    // =========================
+    
+    // Budgets
+    match /budgets/{budgetId} {
+      allow read, write: if isSignedIn() && hasValidUserId(resource.data);
+      allow create: if isSignedIn() && hasValidUserId(request.resource.data)
+        && isValidString(request.resource.data.title, 100)
+        && isValidNumber(request.resource.data.totalBudget)
+        && isValidString(request.resource.data.currency, 10)
+        && isValidArray(request.resource.data.categories)
+        && isValidTimestamp(request.resource.data.createdAt);
+    }
+    
+    // Expenses
+    match /expenses/{expenseId} {
+      allow read, write: if isSignedIn() && hasValidUserId(resource.data);
+      allow create: if isSignedIn() && hasValidUserId(request.resource.data)
+        && isValidString(request.resource.data.description, 200)
+        && isValidNumber(request.resource.data.amount)
+        && isValidString(request.resource.data.currency, 10)
+        && isValidString(request.resource.data.category, 50)
+        && isValidTimestamp(request.resource.data.date)
+        && isValidTimestamp(request.resource.data.createdAt);
+    }
+
+    // =========================
+    // COMMUNITY DATA COLLECTIONS
+    // =========================
+    
+    // Nomad Profiles
+    match /nomadProfiles/{profileId} {
+      allow read: if isSignedIn(); // Public reading for community features
+      allow write: if isSignedIn() && hasValidUserId(resource.data);
+      allow create: if isSignedIn() && hasValidUserId(request.resource.data)
+        && isValidString(request.resource.data.displayName, 100)
+        && isValidString(request.resource.data.homeCountry, 50)
+        && isValidArray(request.resource.data.languages)
+        && isValidArray(request.resource.data.interests)
+        && isValidTimestamp(request.resource.data.joinedAt);
+    }
+    
+    // Community Posts
+    match /communityPosts/{postId} {
+      allow read: if isSignedIn(); // Public reading
+      allow write: if isSignedIn() && hasValidUserId(resource.data);
+      allow create: if isSignedIn() && hasValidUserId(request.resource.data)
+        && isValidString(request.resource.data.title, 200)
+        && isValidString(request.resource.data.content, 2000)
+        && isValidString(request.resource.data.type, 50)
+        && isValidArray(request.resource.data.tags)
+        && isValidTimestamp(request.resource.data.createdAt);
+    }
+    
+    // Meetups
+    match /meetups/{meetupId} {
+      allow read: if isSignedIn(); // Public reading
+      allow write: if isSignedIn() && resource.data.organizerId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.organizerId == request.auth.uid
+        && isValidString(request.resource.data.title, 200)
+        && isValidString(request.resource.data.description, 1000)
+        && isValidString(request.resource.data.location, 200)
+        && isValidTimestamp(request.resource.data.dateTime)
+        && isValidTimestamp(request.resource.data.createdAt);
+      
+      // Allow users to join/leave meetups
+      allow update: if isSignedIn() 
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentParticipants', 'updatedAt']);
+    }
+    
+    // Expense Shares
+    match /expenseShares/{expenseId} {
+      allow read: if isSignedIn() && (
+        resource.data.createdBy == request.auth.uid ||
+        resource.data.participants.hasAny([request.auth.uid])
+      );
+      allow write: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid
+        && isValidString(request.resource.data.title, 200)
+        && isValidNumber(request.resource.data.totalAmount)
+        && isValidString(request.resource.data.currency, 10)
+        && isValidArray(request.resource.data.participants)
+        && isValidTimestamp(request.resource.data.createdAt);
+    }
+
+    // =========================
+    // TRAVEL DATA COLLECTIONS
+    // =========================
+    
+    // Trips
+    match /trips/{tripId} {
+      allow read: if isSignedIn() && (
+        hasValidUserId(resource.data) || 
+        (resource.data.keys().hasAny(['collaborators']) && 
+         resource.data.collaborators.hasAny([request.auth.uid]))
+      );
+      allow write: if isSignedIn() && hasValidUserId(resource.data);
+      allow create: if isSignedIn() && hasValidUserId(request.resource.data)
+        && isValidString(request.resource.data.title, 200)
+        && isValidTimestamp(request.resource.data.startDate)
+        && isValidTimestamp(request.resource.data.endDate)
+        && isValidNumber(request.resource.data.budget)
+        && isValidString(request.resource.data.currency, 10)
+        && isValidTimestamp(request.resource.data.createdAt);
+    }
+    
+    // Flight Deals (read-only for users)
+    match /flightDeals/{dealId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only admin/system can write
+    }
+    
+    // Travel Tips
+    match /travelTips/{tipId} {
+      allow read: if isSignedIn(); // Public reading
+      allow write: if isSignedIn() && hasValidUserId(resource.data);
+      allow create: if isSignedIn() && hasValidUserId(request.resource.data)
+        && isValidString(request.resource.data.title, 200)
+        && isValidString(request.resource.data.content, 2000)
+        && isValidString(request.resource.data.country, 100)
+        && isValidString(request.resource.data.category, 50)
+        && isValidTimestamp(request.resource.data.createdAt);
+    }
+    
+    // Visa Requirements (read-only for users)
+    match /visaRequirements/{visaId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only admin/system can write
+    }
+
+    // =========================
+    // LEGACY SUPPORT (if needed)
+    // =========================
+    
+    // Users collection (for profile data)
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+      
+      // Sub-collections under users (legacy support)
+      match /{collection}/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+  }
+}
