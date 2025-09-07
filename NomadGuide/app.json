@@ -1,0 +1,81 @@
+{
+  "expo": {
+    "name": "NomadGuide",
+    "slug": "nomadguide",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "nomadguide",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "platforms": ["ios", "android"],
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2196F3"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Este app precisa de acesso à localização para mostrar lugares próximos",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Este app precisa de acesso à localização para mostrar lugares próximos",
+        "NSCameraUsageDescription": "Este app precisa de acesso à câmera para tirar fotos dos lugares",
+        "NSPhotoLibraryUsageDescription": "Este app precisa de acesso à galeria para selecionar fotos dos lugares"
+      },
+      "bundleIdentifier": "com.nomad.nomadapp"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#2196F3"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
+      "package": "com.nomad.nomadapp",
+      "versionCode": 1
+    },
+    "plugins": [
+      "expo-router",
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Este app precisa de acesso à localização para mostrar lugares próximos."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Este app precisa de acesso à galeria para selecionar fotos dos lugares.",
+          "cameraPermission": "Este app precisa de acesso à câmera para tirar fotos dos lugares."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Este app precisa de acesso à galeria para salvar fotos.",
+          "savePhotosPermission": "Este app precisa de permissão para salvar fotos na galeria."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id-here"
+      }
+    }
+  }
+}
