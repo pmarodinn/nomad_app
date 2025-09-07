@@ -1,9 +1,0 @@
-# Android Studio auto-ignore
-/local.properties
-
-# Gradle
-.gradle/
-**/build/
-
-# Google services (manter fora do repo)
-app/google-services.json
