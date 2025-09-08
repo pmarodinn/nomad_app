@@ -136,7 +136,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('Problema de conexão com o Firebase');
       }
       
+      // Teste adicional: tentar uma operação simples no Firestore para verificar conectividade
+      console.log('Testando conectividade com Firestore...');
+      try {
+        await getDoc(doc(firestore, 'test', 'connection'));
+        console.log('✓ Firestore acessível');
+      } catch (firestoreError: any) {
+        console.log('Warning: Problema com Firestore:', firestoreError.code);
+      }
+      
       console.log('Criando usuário no Firebase Auth...');
+      console.log('Auth instance:', !!auth);
+      console.log('Auth currentUser antes do registro:', auth.currentUser?.uid || 'Nenhum');
+      console.log('Email para registro:', email);
+      console.log('Password length:', password.length);
+      
       const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
       console.log('✓ Usuário criado no Firebase Auth:', firebaseUser.uid);
       
