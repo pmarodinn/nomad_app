@@ -1,8 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { initializeAuth, getAuth } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Configuração do Firebase para mobile
 // Configuração baseada no google-services.json
@@ -18,8 +17,7 @@ const firebaseConfig = {
 // Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 
-// Para React Native, o Firebase automaticamente detecta e usa AsyncStorage quando disponível
-// Vamos usar getAuth que já tem melhor suporte para React Native
+// Inicializar Auth - getAuth funciona bem com React Native
 export const auth = getAuth(app);
 export const firestore = getFirestore(app);
 export const storage = getStorage(app);
