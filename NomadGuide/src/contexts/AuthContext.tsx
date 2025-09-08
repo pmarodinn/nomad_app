@@ -129,10 +129,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('Problema de conexão com o Firebase');
       }
       
-      // Limpar qualquer estado de autenticação anterior
+      // Limpar qualquer estado de autenticação anterior de forma segura
       if (auth.currentUser) {
-        console.log('Usuário anterior detectado, fazendo logout...');
-        await clearAuthState();
+        try {
+          console.log('Usuário anterior detectado, fazendo logout...');
+          await clearAuthState();
+        } catch (clearError: any) {
+          console.log('Erro ao limpar estado anterior (ignorando):', clearError.code);
+          // Continuar mesmo se houver erro ao limpar
+        }
       }
       
       console.log('Criando usuário no Firebase Auth...');
@@ -163,15 +168,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('=== Erro no registro ===');
       console.error('Código do erro:', error.code);
       console.error('Mensagem:', error.message);
-      console.error('Detalhes completos:', error);
       
-      // Tratamento específico para diferentes tipos de erro
-      if (error.code === 'auth/invalid-user-token' || 
-          error.code === 'auth/user-token-expired') {
-        console.log('Token inválido detectado, limpando estado...');
-        await clearAuthState();
-      }
-      
+      // Não tentar limpar estado aqui para evitar loops
+      console.error('Erro detalhado no registro:', error);
       throw error;
     }
   };
