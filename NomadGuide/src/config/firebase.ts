@@ -18,7 +18,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Inicializar serviços do Firebase
-// Para React Native, vamos usar getAuth que já tem persistência por padrão
+// getAuth já usa AsyncStorage automaticamente no React Native quando disponível
 export const auth = getAuth(app);
 export const firestore = getFirestore(app);
 export const storage = getStorage(app);

@@ -5,11 +5,13 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, firestore } from '../config/firebase';
 import { User } from '../types';
+import { checkFirebaseConnection, clearAuthState } from '../utils/firebaseUtils';
 
 interface AuthContextType {
   user: User | null;
@@ -19,9 +21,11 @@ interface AuthContextType {
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUserProfile: (data: Partial<User>) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -41,11 +45,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Verificar conexão do Firebase no início
+    checkFirebaseConnection();
+    
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('Auth state changed:', firebaseUser?.uid || 'No user');
       setFirebaseUser(firebaseUser);
       
       if (firebaseUser) {
         try {
+          // Verificar se o token é válido
+          const token = await firebaseUser.getIdToken(false);
+          console.log('Token obtido com sucesso');
+          
           // Buscar dados do usuário no Firestore
           const userDoc = await getDoc(doc(firestore, 'users', firebaseUser.uid));
           
@@ -73,8 +85,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             await setDoc(doc(firestore, 'users', firebaseUser.uid), newUser);
             setUser(newUser);
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Erro ao buscar dados do usuário:', error);
+          
+          // Se o erro for de token inválido, fazer logout
+          if (error.code === 'auth/invalid-user-token' || 
+              error.code === 'auth/user-token-expired' ||
+              error.code === 'auth/user-disabled') {
+            console.log('Token inválido, fazendo logout...');
+            await signOut(auth);
+            setUser(null);
+            setFirebaseUser(null);
+          }
         }
       } else {
         setUser(null);
@@ -97,12 +119,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (email: string, password: string, displayName: string) => {
     try {
+      console.log('=== Iniciando processo de registro ===');
+      console.log('Email:', email);
+      console.log('DisplayName:', displayName);
+      
+      // Verificar se o Firebase está configurado corretamente
+      const isConnected = await checkFirebaseConnection();
+      if (!isConnected) {
+        throw new Error('Problema de conexão com o Firebase');
+      }
+      
+      // Limpar qualquer estado de autenticação anterior
+      if (auth.currentUser) {
+        console.log('Usuário anterior detectado, fazendo logout...');
+        await clearAuthState();
+      }
+      
+      console.log('Criando usuário no Firebase Auth...');
       const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
+      console.log('✓ Usuário criado no Firebase Auth:', firebaseUser.uid);
       
       // Atualizar perfil do Firebase Auth
+      console.log('Atualizando perfil...');
       await updateProfile(firebaseUser, { displayName });
+      console.log('✓ Perfil atualizado no Firebase Auth');
       
       // Criar documento do usuário no Firestore
+      console.log('Criando documento no Firestore...');
       const newUser: User = {
         id: firebaseUser.uid,
         email: firebaseUser.email || '',
@@ -113,8 +156,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       };
       
       await setDoc(doc(firestore, 'users', firebaseUser.uid), newUser);
-    } catch (error) {
-      console.error('Erro no registro:', error);
+      console.log('✓ Documento criado no Firestore');
+      console.log('=== Registro concluído com sucesso ===');
+      
+    } catch (error: any) {
+      console.error('=== Erro no registro ===');
+      console.error('Código do erro:', error.code);
+      console.error('Mensagem:', error.message);
+      console.error('Detalhes completos:', error);
+      
+      // Tratamento específico para diferentes tipos de erro
+      if (error.code === 'auth/invalid-user-token' || 
+          error.code === 'auth/user-token-expired') {
+        console.log('Token inválido detectado, limpando estado...');
+        await clearAuthState();
+      }
+      
       throw error;
     }
   };
@@ -149,6 +206,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      console.error('Erro ao enviar email de reset:', error);
+      throw error;
+    }
+  };
+
+  const signIn = async (email: string, password: string) => {
+    return login(email, password);
+  };
+
   const value: AuthContextType = {
     user,
     firebaseUser,
@@ -157,6 +227,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     updateUserProfile,
+    resetPassword,
+    signIn,
   };
 
   return (

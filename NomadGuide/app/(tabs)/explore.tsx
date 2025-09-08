@@ -1,26 +1,52 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Appbar } from 'react-native-paper';
-import { MapComponent } from '@/src/components/MapComponent';
+import { View, ScrollView, StyleSheet, Image } from 'react-native';
+import { Appbar, Card, Title, Paragraph } from 'react-native-paper';
+import { useAuth } from '@/src/contexts/AuthContext';
 
 export default function ExploreScreen() {
-  const handleLocationSelect = (latitude: number, longitude: number) => {
-    console.log('Localização selecionada:', { latitude, longitude });
-    // Aqui você pode implementar a lógica para mostrar locais próximos
-  };
+  const { user } = useAuth();
 
   return (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.Content title="Explorar" />
-        <Appbar.Action icon="magnify" onPress={() => console.log('Buscar')} />
-        <Appbar.Action icon="filter-variant" onPress={() => console.log('Filtrar')} />
+        <View style={styles.headerContent}>
+          <Image 
+            source={require('@/assets/images/icon.png')} 
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+          <Title style={styles.headerTitle}>Explorar</Title>
+        </View>
       </Appbar.Header>
-      
-      <MapComponent 
-        onLocationSelect={handleLocationSelect}
-        showCurrentLocation={true}
-      />
+
+      <ScrollView style={styles.content}>
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title>Destinos Populares</Title>
+            <Paragraph>
+              Descubra novos destinos e lugares incríveis para sua próxima aventura.
+            </Paragraph>
+          </Card.Content>
+        </Card>
+
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title>Dicas de Viagem</Title>
+            <Paragraph>
+              Confira dicas valiosas e guias especializados para suas viagens.
+            </Paragraph>
+          </Card.Content>
+        </Card>
+
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title>Experiências Locais</Title>
+            <Paragraph>
+              Encontre experiências autênticas e atividades únicas em cada destino.
+            </Paragraph>
+          </Card.Content>
+        </Card>
+      </ScrollView>
     </View>
   );
 }
@@ -29,5 +55,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerLogo: {
+    width: 32,
+    height: 32,
+    marginRight: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  card: {
+    marginBottom: 16,
   },
 });
