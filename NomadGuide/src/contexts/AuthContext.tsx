@@ -11,7 +11,7 @@ import {
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, firestore } from '../config/firebase';
 import { User } from '../types';
-import { checkFirebaseConnection, clearAuthState } from '../utils/firebaseUtils';
+import { checkFirebaseConnection, clearAuthState, forceAuthReset } from '../utils/firebaseUtils';
 
 interface AuthContextType {
   user: User | null;
@@ -123,21 +123,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('Email:', email);
       console.log('DisplayName:', displayName);
       
+      // Forçar reset completo de autenticação antes do registro
+      console.log('Forçando limpeza completa de autenticação...');
+      const resetSuccess = await forceAuthReset();
+      if (!resetSuccess) {
+        console.log('Warning: Reset não foi 100% efetivo, mas continuando...');
+      }
+      
       // Verificar se o Firebase está configurado corretamente
       const isConnected = await checkFirebaseConnection();
       if (!isConnected) {
         throw new Error('Problema de conexão com o Firebase');
-      }
-      
-      // Limpar qualquer estado de autenticação anterior de forma segura
-      if (auth.currentUser) {
-        try {
-          console.log('Usuário anterior detectado, fazendo logout...');
-          await clearAuthState();
-        } catch (clearError: any) {
-          console.log('Erro ao limpar estado anterior (ignorando):', clearError.code);
-          // Continuar mesmo se houver erro ao limpar
-        }
       }
       
       console.log('Criando usuário no Firebase Auth...');

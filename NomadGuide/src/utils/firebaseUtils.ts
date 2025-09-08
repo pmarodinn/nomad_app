@@ -33,10 +33,47 @@ export const checkFirebaseConnection = async () => {
 
 export const clearAuthState = async () => {
   try {
-    await signOut(auth);
-    console.log('Estado de autenticação limpo');
+    // Primeiro tentar logout normal
+    if (auth.currentUser) {
+      await signOut(auth);
+      console.log('Logout normal realizado');
+    }
+    
+    // Aguardar um pouco para garantir que o estado foi limpo
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    console.log('Estado de autenticação completamente limpo');
+  } catch (error: any) {
+    console.log('Erro ao fazer logout (ignorando):', error.code);
+    // Mesmo com erro, consideramos que limpou o estado
+  }
+};
+
+export const forceAuthReset = async () => {
+  try {
+    console.log('=== Forçando reset completo de autenticação ===');
+    
+    // Múltiplas tentativas de limpeza
+    for (let i = 0; i < 3; i++) {
+      try {
+        if (auth.currentUser) {
+          await signOut(auth);
+          console.log(`Tentativa ${i + 1}: Logout realizado`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error: any) {
+        console.log(`Tentativa ${i + 1}: Erro ignorado -`, error.code);
+      }
+    }
+    
+    // Verificar se realmente limpou
+    const isClean = !auth.currentUser;
+    console.log('Auth completamente limpo:', isClean);
+    
+    return isClean;
   } catch (error) {
-    console.error('Erro ao limpar estado:', error);
+    console.error('Erro no reset forçado:', error);
+    return false;
   }
 };
 
