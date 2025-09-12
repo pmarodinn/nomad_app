@@ -1,7 +1,14 @@
 {
-  "extends": "expo/tsconfig.base",
+  "extends": "expo/tsconfig.base.js",
   "compilerOptions": {
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
     "strict": true,
+    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./*"
