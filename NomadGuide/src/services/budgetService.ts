@@ -11,7 +11,8 @@ import {
   where,
   orderBy,
   onSnapshot,
-  Timestamp 
+  Timestamp,
+  limit // adicionado
 } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 
@@ -111,28 +112,29 @@ class BudgetService {
   async getCurrentBudget(userId: string): Promise<BudgetData | null> {
     try {
       const now = new Date();
+      // Simplificado: apenas userId + orderBy startDate desc (limite pequeno). Filtra em memória.
       const q = query(
         collection(firestore, this.budgetsCollection),
         where('userId', '==', userId),
-        where('startDate', '<=', Timestamp.fromDate(now)),
-        where('endDate', '>=', Timestamp.fromDate(now)),
-        orderBy('createdAt', 'desc')
+        orderBy('startDate', 'desc'),
+        limit(10)
       );
-      
       const querySnapshot = await getDocs(q);
-      if (querySnapshot.empty) return null;
-      
-      const doc = querySnapshot.docs[0];
+      const docs = querySnapshot.docs
+        .map(d => ({ id: d.id, ...(d.data() as any) }))
+        .filter((d: any) => d.startDate?.toDate?.() <= now && d.endDate?.toDate?.() >= now);
+      if (docs.length === 0) return null;
+      const docData: any = docs[0];
       return {
-        id: doc.id,
-        ...doc.data(),
-        startDate: doc.data().startDate.toDate(),
-        endDate: doc.data().endDate.toDate(),
-        createdAt: doc.data().createdAt.toDate(),
-        updatedAt: doc.data().updatedAt.toDate(),
+        id: docData.id,
+        ...docData,
+        startDate: docData.startDate.toDate(),
+        endDate: docData.endDate.toDate(),
+        createdAt: docData.createdAt.toDate(),
+        updatedAt: docData.updatedAt.toDate(),
       } as BudgetData;
     } catch (error) {
-      console.error('Error getting current budget:', error);
+      console.error('Error getting current budget (refactored):', error);
       throw error;
     }
   }
@@ -272,30 +274,32 @@ class BudgetService {
   // Real-time listeners
   subscribeToCurrentBudget(userId: string, callback: (budget: BudgetData | null) => void): () => void {
     const now = new Date();
+    // Simplificado: mesma estratégia de getCurrentBudget
     const q = query(
       collection(firestore, this.budgetsCollection),
       where('userId', '==', userId),
-      where('startDate', '<=', Timestamp.fromDate(now)),
-      where('endDate', '>=', Timestamp.fromDate(now)),
-      orderBy('createdAt', 'desc')
+      orderBy('startDate', 'desc'),
+      limit(10)
     );
 
     return onSnapshot(q, (querySnapshot) => {
-      if (querySnapshot.empty) {
+      const docs = querySnapshot.docs
+        .map(d => ({ id: d.id, ...(d.data() as any) }))
+        .filter((d: any) => d.startDate?.toDate?.() <= now && d.endDate?.toDate?.() >= now);
+
+      if (docs.length === 0) {
         callback(null);
         return;
       }
-
-      const doc = querySnapshot.docs[0];
+      const docData: any = docs[0];
       const budget = {
-        id: doc.id,
-        ...doc.data(),
-        startDate: doc.data().startDate.toDate(),
-        endDate: doc.data().endDate.toDate(),
-        createdAt: doc.data().createdAt.toDate(),
-        updatedAt: doc.data().updatedAt.toDate(),
+        id: docData.id,
+        ...docData,
+        startDate: docData.startDate.toDate(),
+        endDate: docData.endDate.toDate(),
+        createdAt: docData.createdAt.toDate(),
+        updatedAt: docData.updatedAt.toDate(),
       } as BudgetData;
-      
       callback(budget);
     });
   }
