@@ -54,49 +54,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (firebaseUser) {
         try {
-          // Verificar se o token é válido
-          const token = await firebaseUser.getIdToken(false);
-          console.log('Token obtido com sucesso');
-          
-          // Buscar dados do usuário no Firestore
+          // Buscar dados do usuário no Firestore (sem forçar getIdToken para evitar erro)
           const userDoc = await getDoc(doc(firestore, 'users', firebaseUser.uid));
           
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setUser({
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: userData.displayName || firebaseUser.displayName || '',
-              profilePicture: userData.profilePicture || firebaseUser.photoURL || '',
-              createdAt: userData.createdAt?.toDate() || new Date(),
-              updatedAt: userData.updatedAt?.toDate() || new Date(),
-            });
-          } else {
-            // Criar documento do usuário se não existir
-            const newUser: User = {
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || '',
-              profilePicture: firebaseUser.photoURL || '',
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            };
-            
-            await setDoc(doc(firestore, 'users', firebaseUser.uid), newUser);
-            setUser(newUser);
-          }
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              setUser({
+                id: firebaseUser.uid,
+                email: firebaseUser.email || '',
+                displayName: userData.displayName || firebaseUser.displayName || '',
+                profilePicture: userData.profilePicture || firebaseUser.photoURL || '',
+                createdAt: userData.createdAt?.toDate() || new Date(),
+                updatedAt: userData.updatedAt?.toDate() || new Date(),
+              });
+            } else {
+              const newUser: User = {
+                id: firebaseUser.uid,
+                email: firebaseUser.email || '',
+                displayName: firebaseUser.displayName || '',
+                profilePicture: firebaseUser.photoURL || '',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              };
+              await setDoc(doc(firestore, 'users', firebaseUser.uid), newUser);
+              setUser(newUser);
+            }
         } catch (error: any) {
-          console.error('Erro ao buscar dados do usuário:', error);
-          
-          // Se o erro for de token inválido, fazer logout
-          if (error.code === 'auth/invalid-user-token' || 
-              error.code === 'auth/user-token-expired' ||
-              error.code === 'auth/user-disabled') {
-            console.log('Token inválido, fazendo logout...');
-            await signOut(auth);
-            setUser(null);
-            setFirebaseUser(null);
-          }
+          console.error('Erro ao sincronizar usuário:', error?.code || error?.message);
         }
       } else {
         setUser(null);

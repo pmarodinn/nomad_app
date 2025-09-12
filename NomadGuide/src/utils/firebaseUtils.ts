@@ -7,23 +7,7 @@ export const checkFirebaseConnection = async () => {
     console.log('Auth configurado:', !!auth);
     console.log('Firestore configurado:', !!firestore);
     console.log('Usuario atual:', auth.currentUser?.uid || 'Nenhum');
-    
-    if (auth.currentUser) {
-      try {
-        const token = await auth.currentUser.getIdToken(false);
-        console.log('Token válido obtido');
-        return true;
-      } catch (tokenError: any) {
-        console.error('Erro ao obter token:', tokenError);
-        if (tokenError.code === 'auth/invalid-user-token' || 
-            tokenError.code === 'auth/user-token-expired') {
-          console.log('Token inválido, fazendo logout...');
-          await signOut(auth);
-        }
-        return false;
-      }
-    }
-    
+    // Não forçar getIdToken aqui (evita auth/invalid-user-token)
     return true;
   } catch (error) {
     console.error('Erro ao verificar Firebase:', error);
@@ -33,43 +17,33 @@ export const checkFirebaseConnection = async () => {
 
 export const clearAuthState = async () => {
   try {
-    // Primeiro tentar logout normal
     if (auth.currentUser) {
       await signOut(auth);
       console.log('Logout normal realizado');
     }
-    
-    // Aguardar um pouco para garantir que o estado foi limpo
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    await new Promise(resolve => setTimeout(resolve, 400));
     console.log('Estado de autenticação completamente limpo');
   } catch (error: any) {
     console.log('Erro ao fazer logout (ignorando):', error.code);
-    // Mesmo com erro, consideramos que limpou o estado
   }
 };
 
 export const forceAuthReset = async () => {
   try {
     console.log('=== Forçando reset completo de autenticação ===');
-    
-    // Múltiplas tentativas de limpeza
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       try {
         if (auth.currentUser) {
           await signOut(auth);
           console.log(`Tentativa ${i + 1}: Logout realizado`);
         }
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300));
       } catch (error: any) {
         console.log(`Tentativa ${i + 1}: Erro ignorado -`, error.code);
       }
     }
-    
-    // Verificar se realmente limpou
     const isClean = !auth.currentUser;
     console.log('Auth completamente limpo:', isClean);
-    
     return isClean;
   } catch (error) {
     console.error('Erro no reset forçado:', error);
@@ -82,7 +56,6 @@ export const getDetailedAuthState = () => {
   if (!user) {
     return { status: 'not-authenticated' };
   }
-  
   return {
     status: 'authenticated',
     uid: user.uid,
