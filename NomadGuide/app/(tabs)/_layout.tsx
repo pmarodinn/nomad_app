@@ -47,13 +47,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="emergency"
-        options={{
-          title: 'Emergência',
-          tabBarIcon: ({ color }: { color: string }) => <IconSymbol size={28} name="exclamationmark.triangle" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: 'Perfil',
